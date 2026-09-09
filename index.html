@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#17102B">
+<title>오선보 노트 러시</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#17102B;
+    --bg-panel:#221a3f;
+    --bg-panel-2:#2c2154;
+    --gold:#FFC857;
+    --coral:#FF6B6B;
+    --teal:#4ECDC4;
+    --text-primary:#F4EFFF;
+    --text-muted:#b3a6dd;
+    --pad: max(10px, env(safe-area-inset-left));
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0;
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  body{
+    background:radial-gradient(circle at 50% 0%, #241a46 0%, var(--bg-deep) 70%);
+    color:var(--text-primary);
+    font-family:'Baloo 2', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      var(--pad)
+      max(6px, env(safe-area-inset-bottom))
+      var(--pad);
+    -webkit-user-select:none; user-select:none;
+  }
+
+  .stage{
+    width:100%;
+    max-width:820px;
+    height:100%;
+    max-height:900px;
+    background:linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border:2px solid #3d2f70;
+    border-radius:18px;
+    box-shadow:0 14px 40px rgba(0,0,0,.5);
+    padding:10px 12px 12px;
+    display:flex; flex-direction:column; gap:8px;
+    position:relative; overflow:hidden;
+  }
+
+  .titlebar{display:flex; align-items:baseline; gap:8px; flex-shrink:0;}
+  h1{
+    font-size:clamp(.95rem, 3.6vw, 1.35rem);
+    margin:0; color:var(--gold); letter-spacing:.01em;
+  }
+  .sub{
+    color:var(--text-muted);
+    font-size:clamp(.62rem, 2.2vw, .8rem);
+    margin:0;
+  }
+  /* 세로 화면 좁을 땐 부제 숨김 */
+  @media (max-height:620px){ .sub{display:none;} }
+
+  .hud{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'Space Mono', monospace;
+    font-size:clamp(.72rem, 2.8vw, .95rem);
+    flex-shrink:0;
+  }
+  .lives{display:flex; gap:3px; font-size:1.15em;}
+  .heart{transition:opacity .25s, transform .25s;}
+  .heart.off{opacity:.16; transform:scale(.8);}
+  .combo{color:var(--coral); font-weight:700;}
+  .score{color:var(--teal);}
+
+  .canvasWrap{
+    position:relative;
+    flex:1 1 auto;
+    min-height:130px;
+    border-radius:12px;
+    overflow:hidden;
+    background:#150e29;
+    border:1px solid #40315f;
+  }
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
+  .toast{
+    position:absolute; top:8%; left:50%;
+    transform:translateX(-50%) scale(.85);
+    background:var(--gold); color:#2a1d05; font-weight:800;
+    padding:6px 16px; border-radius:999px;
+    font-size:clamp(.75rem, 3vw, .95rem);
+    opacity:0; pointer-events:none; z-index:5;
+    transition:opacity .22s, transform .22s;
+    white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) scale(1);}
+  .bossBanner{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    background:var(--coral); color:#330000; font-weight:800;
+    font-size:clamp(.65rem, 2.6vw, .8rem);
+    padding:4px 14px; border-radius:999px; opacity:0; z-index:6;
+    transition:opacity .3s; white-space:nowrap;
+  }
+  .bossBanner.show{opacity:1;}
+
+  .controls{
+    flex-shrink:0;
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:7px;
+  }
+  /* 넓은 화면(태블릿 가로/데스크톱)에서는 한 줄 8칸 */
+  @media (min-width:620px){
+    .controls{grid-template-columns:repeat(8, 1fr);}
+  }
+  .noteBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(1rem, 4.4vw, 1.25rem);
+    color:var(--bg-deep); background:var(--teal);
+    border:none; border-bottom:4px solid #2b8f88; border-radius:12px;
+    min-height:clamp(46px, 8.5vh, 66px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    line-height:1.05; cursor:pointer;
+    transition:transform .07s, background .1s;
+    touch-action:manipulation;
+  }
+  .noteBtn small{
+    font-family:'Space Mono',monospace;
+    font-size:.52em; opacity:.65; margin-top:1px;
+  }
+  .noteBtn.pressed{transform:translateY(3px); border-bottom-width:1px;}
+  .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
+  .noteBtn.correctFlash{background:var(--gold);}
+  .noteBtn.wrongFlash{background:var(--coral); color:#3a0f0f;}
+
+  .overlay{
+    position:absolute; inset:0; z-index:10;
+    background:rgba(17,11,35,.96);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:22px; gap:12px;
+    overflow-y:auto;
+  }
+  .overlay.hidden{display:none;}
+  .overlay h2{font-size:clamp(1.15rem, 5.5vw, 1.7rem); margin:0; color:var(--gold);}
+  .overlay p{
+    color:var(--text-muted); max-width:36ch; line-height:1.65; margin:0;
+    font-size:clamp(.8rem, 3.2vw, .95rem);
+  }
+  .stars{font-size:clamp(1.8rem, 8vw, 2.4rem); letter-spacing:6px;}
+  .primaryBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:800;
+    font-size:clamp(.95rem, 4vw, 1.1rem);
+    background:var(--gold); color:#2a1d05;
+    border:none; border-bottom:4px solid #c99328;
+    padding:14px 36px; border-radius:14px; cursor:pointer;
+    min-height:52px; margin-top:4px;
+  }
+  .primaryBtn:active{transform:translateY(3px); border-bottom-width:1px;}
+  .speedPick{display:flex; gap:8px; margin-top:2px;}
+  .speedBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(.8rem, 3.4vw, .95rem);
+    background:transparent; color:var(--text-muted);
+    border:2px solid #4a3a80; border-radius:999px;
+    padding:9px 18px; min-height:44px; cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .speedBtn.selected{
+    background:var(--teal); color:var(--bg-deep); border-color:var(--teal);
+  }
+  .hint{
+    font-family:'Space Mono',monospace;
+    font-size:clamp(.6rem, 2.4vw, .72rem); color:var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="titlebar">
+    <h1>♪ 오선보 노트 러시</h1>
+    <p class="sub">음표 자리를 보고 음이름을 누르세요</p>
+  </div>
+
+  <div class="hud">
+    <div class="lives" id="lives"></div>
+    <div class="combo" id="comboLabel">콤보 0</div>
+    <div class="score" id="scoreLabel">점수 0</div>
+  </div>
+
+  <div class="canvasWrap" id="canvasWrap">
+    <canvas id="game"></canvas>
+    <div class="toast" id="toast"></div>
+    <div class="bossBanner" id="bossBanner">⚡ 보스 스테이지 ⚡</div>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="overlay" id="startOverlay">
+    <h2>오선보 노트 러시</h2>
+    <p>음표가 오른쪽에서 나타나 왼쪽 판정선으로 흘러와요.
+    판정선에 닿기 전에, 음표가 오선보 위 어디에 있는지 보고
+    알맞은 음이름 버튼을 눌러주세요.</p>
+    <p>하트 3개를 지키며 최대한 멀리 가보세요!</p>
+    <div class="speedPick" id="speedPick">
+      <button type="button" class="speedBtn" data-speed="3.6">느리게</button>
+      <button type="button" class="speedBtn selected" data-speed="2.6">보통</button>
+      <button type="button" class="speedBtn" data-speed="1.9">빠르게</button>
+    </div>
+    <button class="primaryBtn" id="startBtn">시작하기</button>
+    <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요</div>
+  </div>
+
+  <div class="overlay hidden" id="overOverlay">
+    <h2>다시 도전해볼까?</h2>
+    <p id="overText"></p>
+    <button class="primaryBtn" id="retryBtn">다시 시작</button>
+  </div>
+
+  <div class="overlay hidden" id="winOverlay">
+    <h2>보스 스테이지 클리어!</h2>
+    <div class="stars" id="starsLabel"></div>
+    <p id="winText"></p>
+    <button class="primaryBtn" id="againBtn">한 번 더 하기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // 도(C4) ~ 높은도(C5). step: 오선보 아래 첫째줄(E4)=0 기준 반칸 단위
+  const NOTES = [
+    { name:'도',  sub:'C4', freq:261.63, step:-2, ledger:true  },
+    { name:'레',  sub:'D4', freq:293.66, step:-1, ledger:false },
+    { name:'미',  sub:'E4', freq:329.63, step: 0, ledger:false },
+    { name:'파',  sub:'F4', freq:349.23, step: 1, ledger:false },
+    { name:'솔',  sub:'G4', freq:392.00, step: 2, ledger:false },
+    { name:'라',  sub:'A4', freq:440.00, step: 3, ledger:false },
+    { name:'시',  sub:'B4', freq:493.88, step: 4, ledger:false },
+    { name:'도′', sub:'C5', freq:523.25, step: 5, ledger:false },
+  ];
+
+  const el = id => document.getElementById(id);
+  const canvas = el('game'), ctx = canvas.getContext('2d');
+  const wrap = el('canvasWrap');
+  const livesEl = el('lives'), comboEl = el('comboLabel'), scoreEl = el('scoreLabel');
+  const toastEl = el('toast'), bossBanner = el('bossBanner');
+  const startOverlay = el('startOverlay'), overOverlay = el('overOverlay'), winOverlay = el('winOverlay');
+  const controls = el('controls');
+
+  // ---------- 반응형 캔버스 ----------
+  let W = 0, H = 0, geo = null;
+  function layout(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const r = wrap.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const lineGap    = H * 0.115;              // 오선 줄 간격
+    const bottomLine = H * 0.70;               // 맨 아래 줄(E4)
+    geo = {
+      lineGap,
+      bottomLine,
+      half: lineGap / 2,
+      staffLeft: W * 0.13,
+      judgeX: Math.max(W * 0.20, 54),
+      spawnX: W - Math.max(W * 0.05, 18),
+      noteRx: lineGap * 0.46,
+      noteRy: lineGap * 0.34,
+      stem: lineGap * 1.5,
+      clefSize: lineGap * 6.4,
+    };
+  }
+  const yOf = step => geo.bottomLine - step * geo.half;
+
+  if (window.ResizeObserver) new ResizeObserver(() => { layout(); }).observe(wrap);
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 250));
+
+  // ---------- 사운드 ----------
+  let audioCtx = null;
+  function initAudio(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) audioCtx = new AC();
+    }
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function tone(freq, dur=0.4){
+    if(!audioCtx || audioCtx.state !== 'running') return;
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'triangle'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function buzz(){
+    if(navigator.vibrate) navigator.vibrate(60);
+    if(!audioCtx || audioCtx.state !== 'running') return;
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = 110;
+    g.gain.setValueAtTime(0.16, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + 0.26);
+  }
+
+  // ---------- 버튼(터치 우선) ----------
+  const buttons = NOTES.map((n, i) => {
+    const b = document.createElement('button');
+    b.className = 'noteBtn';
+    b.type = 'button';
+    b.innerHTML = `${n.name}<small>${n.sub}</small>`;
+    b.setAttribute('aria-label', `${n.name} 음`);
+
+    let handled = false;
+    const fire = e => {
+      e.preventDefault();
+      handled = true;
+      b.classList.add('pressed');
+      answer(i, b);
+      setTimeout(() => { handled = false; }, 350);
+    };
+    b.addEventListener('touchstart', fire, {passive:false});
+    b.addEventListener('mousedown', e => { if(!handled) fire(e); });
+    b.addEventListener('click', e => e.preventDefault());
+    const release = () => b.classList.remove('pressed');
+    ['touchend','touchcancel','mouseup','mouseleave'].forEach(ev =>
+      b.addEventListener(ev, release));
+    b.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); answer(i, b); }
+    });
+    controls.appendChild(b);
+    return b;
+  });
+
+  window.addEventListener('keydown', e => {
+    const k = parseInt(e.key, 10);
+    if(k >= 1 && k <= 8 && state.screen === 'playing') answer(k - 1, buttons[k - 1]);
+  });
+
+  // ---------- 속도 선택 ----------
+  let baseTravel = 2.6;    // 기본 "보통"
+  let minTravel  = 1.2;    // 레벨업 하한
+  let bossTravel = 1.05;   // 보스 스테이지
+  document.querySelectorAll('.speedBtn').forEach(b => {
+    const pick = e => {
+      e.preventDefault();
+      document.querySelectorAll('.speedBtn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      baseTravel = parseFloat(b.dataset.speed);
+      minTravel  = baseTravel * 0.46;
+      bossTravel = baseTravel * 0.40;
+    };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
+  });
+
+  // ---------- 게임 상태 ----------
+  let state;
+  function resetState(){
+    state = {
+      screen:'start',
+      score:0, combo:0, maxCombo:0,
+      lives:3, correct:0, misses:0,
+      level:1, travelTime:baseTravel,  // 판정선까지 도달 시간(초) — 화면 크기와 무관
+      boss:false, bossHits:0, bossTarget:8,
+      current:null,
+    };
+  }
+  resetState();
+
+  function renderHUD(){
+    livesEl.innerHTML = '';
+    for(let i = 0; i < 3; i++){
+      const s = document.createElement('span');
+      s.className = 'heart' + (i < state.lives ? '' : ' off');
+      s.textContent = '♥';
+      livesEl.appendChild(s);
+    }
+    comboEl.textContent = `콤보 ${state.combo}`;
+    scoreEl.textContent = `점수 ${state.score}`;
+  }
+
+  let toastTimer = null;
+  function showToast(msg, ms=1100){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+
+  function spawnNote(){
+    if(state.screen !== 'playing') return;
+    let pool = NOTES.map((_, i) => i);
+    if(!state.boss && state.level === 1) pool = [2, 4, 6, 0];  // 미 솔 시 도
+    else if(!state.boss && state.level === 2) pool = [0, 2, 4, 6, 7];
+    const idx = pool[Math.floor(Math.random() * pool.length)];
+    state.current = { idx, x: geo.spawnX, resolved:false, flashFrames:0, flashType:null };
+  }
+
+  function answer(idx, btn){
+    if(state.screen !== 'playing' || !state.current || state.current.resolved) return;
+    const n = state.current;
+    if(idx === n.idx){
+      n.resolved = true;
+      state.correct++;
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.score += 10 + Math.min(state.combo, 10) * 2;
+      tone(NOTES[idx].freq);
+      flashBtn(btn, 'correctFlash');
+      if(state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
+      renderHUD();
+      handleProgress();
+      setTimeout(spawnNote, 90);
+    } else {
+      n.resolved = true;
+      n.flashFrames = 20; n.flashType = 'wrong';
+      state.combo = 0; state.lives--; state.misses++;
+      buzz();
+      flashBtn(btn, 'wrongFlash');
+      renderHUD();
+      if(state.lives <= 0) setTimeout(gameOver, 300);
+      else setTimeout(spawnNote, 550);
+    }
+  }
+  function flashBtn(btn, cls){
+    if(!btn) return;
+    btn.classList.add(cls);
+    setTimeout(() => btn.classList.remove(cls), 220);
+  }
+
+  function handleProgress(){
+    if(state.boss){
+      state.bossHits++;
+      if(state.bossHits >= state.bossTarget) setTimeout(victory, 250);
+      return;
+    }
+    if(state.correct % 5 === 0){
+      state.level++;
+      state.travelTime = Math.max(state.travelTime / 1.18, minTravel);
+      showToast('레벨 업! 조금 더 빨라져요 🎵');
+    }
+    if(state.correct >= 20) startBoss();
+  }
+
+  function startBoss(){
+    state.boss = true;
+    state.bossHits = 0;
+    state.travelTime = bossTravel;
+    bossBanner.classList.add('show');
+    showToast('보스 스테이지! 8개 연속 도전', 1500);
+  }
+
+  function missCurrent(){
+    const n = state.current;
+    if(!n || n.resolved) return;
+    n.resolved = true;
+    state.combo = 0; state.lives--; state.misses++;
+    buzz();
+    renderHUD();
+    if(state.lives <= 0) setTimeout(gameOver, 250);
+    else setTimeout(spawnNote, 450);
+  }
+
+  function gameOver(){
+    state.screen = 'gameover';
+    el('overText').textContent =
+      `점수 ${state.score}점, 최대 콤보 ${state.maxCombo}까지 갔어요. 다음엔 더 잘할 수 있어요!`;
+    overOverlay.classList.remove('hidden');
+  }
+  function victory(){
+    state.screen = 'victory';
+    bossBanner.classList.remove('show');
+    const stars = state.misses === 0 ? 3 : state.misses <= 2 ? 2 : 1;
+    el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    el('winText').textContent =
+      `보스 스테이지까지 클리어! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+    winOverlay.classList.remove('hidden');
+  }
+
+  function startGame(){
+    initAudio();
+    layout();
+    resetState();
+    state.screen = 'playing';
+    startOverlay.classList.add('hidden');
+    overOverlay.classList.add('hidden');
+    winOverlay.classList.add('hidden');
+    bossBanner.classList.remove('show');
+    renderHUD();
+    spawnNote();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+  ['startBtn','retryBtn','againBtn'].forEach(id => {
+    const b = el(id);
+    b.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
+    b.addEventListener('click', startGame);
+  });
+
+  // 백그라운드 전환 시 일시정지 → 복귀 시 재개
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden && state.screen === 'playing'){
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+  });
+
+  // ---------- 그리기 ----------
+  function drawStaff(){
+    ctx.lineWidth = Math.max(1.2, H * 0.006);
+    ctx.strokeStyle = '#EDE6FF';
+    for(let i = 0; i < 5; i++){
+      const y = geo.bottomLine - i * geo.lineGap;
+      ctx.beginPath();
+      ctx.moveTo(geo.staffLeft, y);
+      ctx.lineTo(W - 4, y);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#FFC857';
+    ctx.font = `${geo.clefSize}px Georgia, 'Times New Roman', serif`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('𝄞', W * 0.015, geo.bottomLine + geo.lineGap * 0.55);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(78,205,196,.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(geo.judgeX, geo.bottomLine - geo.lineGap * 5.4);
+    ctx.lineTo(geo.judgeX, geo.bottomLine + geo.lineGap * 1.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawNote(n){
+    const def = NOTES[n.idx];
+    const y = yOf(def.step);
+    let color = '#FFC857';
+    if(n.flashType === 'wrong' && n.flashFrames > 0){ color = '#FF6B6B'; n.flashFrames--; }
+
+    if(def.ledger){
+      ctx.strokeStyle = '#EDE6FF';
+      ctx.lineWidth = Math.max(1.2, H * 0.006);
+      ctx.beginPath();
+      ctx.moveTo(n.x - geo.noteRx * 1.7, y);
+      ctx.lineTo(n.x + geo.noteRx * 1.7, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.6, geo.lineGap * 0.11);
+    ctx.beginPath();
+    if(def.step <= 2){ ctx.moveTo(n.x + geo.noteRx * 0.9, y); ctx.lineTo(n.x + geo.noteRx * 0.9, y - geo.stem); }
+    else            { ctx.moveTo(n.x - geo.noteRx * 0.9, y); ctx.lineTo(n.x - geo.noteRx * 0.9, y + geo.stem); }
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.save();
+    ctx.translate(n.x, y);
+    ctx.rotate(-0.35);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, geo.noteRx, geo.noteRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let lastTime = 0;
+  function loop(t){
+    if(state.screen !== 'playing') return;
+    if(document.hidden){ return; }
+    const dt = Math.min((t - lastTime) / 1000, 0.05);
+    lastTime = t;
+
+    ctx.clearRect(0, 0, W, H);
+    if(state.boss){
+      ctx.fillStyle = 'rgba(255,107,107,0.055)';
+      ctx.fillRect(0, 0, W, H);
+    }
+    drawStaff();
+
+    const n = state.current;
+    if(n){
+      if(!n.resolved){
+        const speed = (geo.spawnX - geo.judgeX) / state.travelTime;  // px/s, 화면폭에 자동 비례
+        n.x -= speed * dt;
+        if(n.x <= geo.judgeX){ n.x = geo.judgeX; missCurrent(); }
+      }
+      drawNote(n);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  layout();
+  renderHUD();
+})();
+</script>
+</body>
+</html>
