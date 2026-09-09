@@ -218,6 +218,7 @@
       <button type="button" class="songBtn" data-song="1">학교종이 땡땡땡</button>
       <button type="button" class="songBtn" data-song="2">나비야</button>
     </div>
+    <button type="button" class="linkBtn" id="previewBtn">▶ 멜로디 미리듣기</button>
     <div class="sectionLabel">속도 선택</div>
     <div class="speedPick" id="speedPick">
       <button type="button" class="speedBtn" data-speed="3.6">느리게</button>
@@ -368,6 +369,25 @@
     o.start(t0); o.stop(t0 + 0.26);
   }
 
+  // 시작 전에 그 동요가 실제로 어떻게 들리는지 미리 들려준다 — "감으로 아무
+  // 버튼이나 누르는" 게 아니라 "이 멜로디를 내가 직접 쳐본다"는 느낌이 나야
+  // 게임하는 맛이 산다는 피드백을 반영.
+  function previewSong(song){
+    initAudio();
+    const play = () => {
+      const noteDur = 0.34;
+      song.sequence.forEach((idx, i) => {
+        setTimeout(() => tone(NOTES[idx].freq, noteDur * 0.85), i * noteDur * 1000);
+      });
+    };
+    if(audioCtx && audioCtx.state === 'running') play();
+    else if(audioCtx) audioCtx.resume().then(play);
+  }
+  const previewBtn = el('previewBtn');
+  const firePreview = e => { e.preventDefault(); previewSong(SONGS[selectedSongIndex]); };
+  previewBtn.addEventListener('touchstart', firePreview, {passive:false});
+  previewBtn.addEventListener('click', firePreview);
+
   // ---------- 버튼(터치 우선) ----------
   const buttons = NOTES.map((n, i) => {
     const b = document.createElement('button');
@@ -502,6 +522,9 @@
       n.flashFrames = 20; n.flashType = 'wrong';
       state.combo = 0; state.lives--; state.misses++;
       buzz();
+      // 틀려도 원래 음은 들려준다 — 멜로디 흐름이 안 끊겨야 "노래를 치고
+      // 있다"는 느낌이 유지되고, 정답 음이 뭐였는지 귀로도 익힐 수 있다.
+      setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
       flashBtn(btn, 'wrongFlash');
       renderHUD();
       if(state.lives <= 0) setTimeout(gameOver, 300);
@@ -528,6 +551,7 @@
     n.resolved = true;
     state.combo = 0; state.lives--; state.misses++;
     buzz();
+    setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
     renderHUD();
     if(state.lives <= 0) setTimeout(gameOver, 250);
     else advanceSong(450);
