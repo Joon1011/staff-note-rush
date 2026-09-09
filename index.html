@@ -345,10 +345,13 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if(AC) audioCtx = new AC();
     }
-    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    // resume()는 비동기라 완료 전에 tone()이 먼저 불리면 상태가 아직
+    // 'suspended'일 수 있다 — audioCtx 존재 여부만 확인하고 바로 스케줄해서,
+    // resume이 늦게 끝나도 그 소리가 통째로 씹히지 않게 한다.
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   }
   function tone(freq, dur=0.4){
-    if(!audioCtx || audioCtx.state !== 'running') return;
+    if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = 'triangle'; o.frequency.value = freq;
@@ -360,7 +363,7 @@
   }
   function buzz(){
     if(navigator.vibrate) navigator.vibrate(60);
-    if(!audioCtx || audioCtx.state !== 'running') return;
+    if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = 'square'; o.frequency.value = 110;

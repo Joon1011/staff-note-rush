@@ -288,26 +288,41 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if(AC) audioCtx = new AC();
     }
-    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    // resume()는 비동기라 완료 전에 소리 함수가 먼저 불려도 상태가 아직
+    // 'suspended'일 수 있다 — 아래 사운드 함수들은 audioCtx 존재 여부만
+    // 확인하고(state==='running' 강제 체크 없이) 바로 스케줄한다. 그래야
+    // resume이 늦게 끝나도 그 소리 자체가 통째로 씹히지 않고 재생된다
+    // ("아무 소리도 안 들린다"는 문제의 실제 원인).
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   }
-  // 그냥 딱딱거리는 메트로놈 대신, 신나는 짧은 멜로디 루프를 박자마다 한 음씩
-  // 연주해서 배경음악처럼 들리게 한다("신나는 멜로디를 넣어서" 피드백 반영).
-  // 도미솔도′ 솔미레도 — 통통 튀는 8박 루프, 라운드 내내 반복.
-  const RIFF_FREQS = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 261.63];
+
+  // 그냥 딱딱거리는 메트로놈 대신, 신나는 멜로디+베이스 루프를 박자마다
+  // 같이 연주해서 배경음악처럼 들리게 한다("신나는 멜로디를 넣어서" 피드백
+  // 반영). 통통 튀는 8박 루프, 라운드 내내 반복.
+  const RIFF_MELODY = [523.25, 659.25, 523.25, 392.00, 440.00, 523.25, 440.00, 329.63];
+  const RIFF_BASS   = [130.81, 130.81, 196.00, 196.00, 130.81, 130.81, 196.00, 196.00];
   function playRiffNote(pos){
-    if(!audioCtx || audioCtx.state !== 'running') return;
-    const freq = RIFF_FREQS[((pos % RIFF_FREQS.length) + RIFF_FREQS.length) % RIFF_FREQS.length];
+    if(!audioCtx) return;
+    const i = ((pos % RIFF_MELODY.length) + RIFF_MELODY.length) % RIFF_MELODY.length;
     const t0 = audioCtx.currentTime;
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'square'; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.17);
-    o.connect(g).connect(audioCtx.destination);
-    o.start(t0); o.stop(t0 + 0.19);
+    const o1 = audioCtx.createOscillator(), g1 = audioCtx.createGain();
+    o1.type = 'square'; o1.frequency.value = RIFF_MELODY[i];
+    g1.gain.setValueAtTime(0.0001, t0);
+    g1.gain.exponentialRampToValueAtTime(0.16, t0 + 0.008);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+    o1.connect(g1).connect(audioCtx.destination);
+    o1.start(t0); o1.stop(t0 + 0.2);
+
+    const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+    o2.type = 'sine'; o2.frequency.value = RIFF_BASS[i];
+    g2.gain.setValueAtTime(0.0001, t0);
+    g2.gain.exponentialRampToValueAtTime(0.13, t0 + 0.01);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+    o2.connect(g2).connect(audioCtx.destination);
+    o2.start(t0); o2.stop(t0 + 0.24);
   }
   function hitSound(){
-    if(!audioCtx || audioCtx.state !== 'running') return;
+    if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = 'triangle';
@@ -320,7 +335,7 @@
   }
   function buzz(){
     if(navigator.vibrate) navigator.vibrate(60);
-    if(!audioCtx || audioCtx.state !== 'running') return;
+    if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = 'square'; o.frequency.value = 110;
@@ -501,6 +516,10 @@
     holes.forEach(h => h.classList.remove('up','hitGood','hitMiss','shake'));
     renderHUD();
     clearInterval(beatTimer);
+    // 첫 박자를 "시작하기"를 누른 직후 바로 재생한다 — 다음 박자까지
+    // 620ms 넘게 조용히 기다리게 하지 않고, 탭한 제스처와 최대한 가까이
+    // 붙여서 오디오가 확실히 풀리게 한다.
+    onBeat();
     beatTimer = setInterval(onBeat, beatMs);
   }
   ['startBtn','retryBtn','againBtn'].forEach(id => {
