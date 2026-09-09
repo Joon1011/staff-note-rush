@@ -184,6 +184,40 @@
     font-family:'Space Mono',monospace;
     font-size:clamp(.6rem, 2.4vw, .72rem); color:var(--text-muted);
   }
+  .hidden{ display:none !important; }
+
+  .rankEntry{ display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:2px; width:100%; }
+  .rankInput{
+    font-family:'Baloo 2', sans-serif; font-size:clamp(.85rem, 3.4vw, 1rem);
+    background:#150e29; border:2px solid #4a3a80; border-radius:10px;
+    color:var(--text-primary); padding:8px 12px; text-align:center;
+    width:min(220px, 80vw);
+  }
+  .rankInput:focus{ outline:none; border-color:var(--teal); }
+  .rankEntryBtns{ display:flex; gap:8px; }
+  .miniBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(.75rem, 3vw, .88rem);
+    background:var(--teal); color:var(--bg-deep); border:none;
+    border-radius:999px; padding:8px 16px; cursor:pointer; min-height:38px;
+  }
+  .miniBtn.ghost{ background:transparent; color:var(--text-muted); border:2px solid #4a3a80; }
+  .rankSaved{ color:var(--gold); font-weight:700; font-size:clamp(.78rem, 3vw, .9rem); }
+
+  .rankList{
+    list-style:none; padding:0; margin:0; width:100%; max-width:320px;
+    display:flex; flex-direction:column; gap:6px; text-align:left;
+    max-height:50vh; overflow-y:auto;
+  }
+  .rankList li{
+    display:flex; align-items:center; gap:10px;
+    background:#150e29; border:1px solid #40315f; border-radius:10px; padding:8px 12px;
+    font-family:'Space Mono',monospace; font-size:clamp(.78rem, 3vw, .9rem);
+  }
+  .rankNum{ color:var(--gold); font-weight:700; width:1.6em; flex-shrink:0; }
+  .rankName{ flex:1; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rankScore{ color:var(--teal); font-weight:700; flex-shrink:0; }
+  .rankEmpty{ color:var(--text-muted); text-align:center; list-style:none; padding:8px; }
 </style>
 </head>
 <body>
@@ -228,12 +262,23 @@
     </div>
     <button class="primaryBtn" id="startBtn">시작하기</button>
     <a class="linkBtn" href="./beat-mole.html">🔨 망치 박자 게임으로 가기</a>
+    <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
     <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요</div>
   </div>
 
   <div class="overlay hidden" id="overOverlay">
     <h2>다시 도전해볼까?</h2>
     <p id="overText"></p>
+    <div class="rankEntry" id="rankEntryOver">
+      <div class="rankForm" id="rankFormOver">
+        <input type="text" class="rankInput" id="rankNameOver" placeholder="이름(최대 12자)" maxlength="12">
+        <div class="rankEntryBtns">
+          <button type="button" class="miniBtn" id="rankSubmitOver">랭킹 등록</button>
+          <button type="button" class="miniBtn ghost" id="rankSkipOver">건너뛰기</button>
+        </div>
+      </div>
+      <div class="rankSaved hidden" id="rankSavedOver">✅ 랭킹에 등록됐어요!</div>
+    </div>
     <button class="primaryBtn" id="retryBtn">다시 시작</button>
     <button type="button" class="linkBtn" id="menuBtnOver">다른 동요 선택</button>
   </div>
@@ -242,8 +287,24 @@
     <h2 id="winHeading">완주했어요!</h2>
     <div class="stars" id="starsLabel"></div>
     <p id="winText"></p>
+    <div class="rankEntry" id="rankEntryWin">
+      <div class="rankForm" id="rankFormWin">
+        <input type="text" class="rankInput" id="rankNameWin" placeholder="이름(최대 12자)" maxlength="12">
+        <div class="rankEntryBtns">
+          <button type="button" class="miniBtn" id="rankSubmitWin">랭킹 등록</button>
+          <button type="button" class="miniBtn ghost" id="rankSkipWin">건너뛰기</button>
+        </div>
+      </div>
+      <div class="rankSaved hidden" id="rankSavedWin">✅ 랭킹에 등록됐어요!</div>
+    </div>
     <button class="primaryBtn" id="againBtn">한 번 더 하기</button>
     <button type="button" class="linkBtn" id="menuBtnWin">다른 동요 선택</button>
+  </div>
+
+  <div class="overlay hidden" id="rankOverlay">
+    <h2>🏆 랭킹 TOP 10</h2>
+    <ol class="rankList" id="rankingList"></ol>
+    <button type="button" class="linkBtn" id="closeRankBtn">닫기</button>
   </div>
 </div>
 
@@ -306,7 +367,92 @@
   const subEl = el('subLabel');
   const toastEl = el('toast');
   const startOverlay = el('startOverlay'), overOverlay = el('overOverlay'), winOverlay = el('winOverlay');
+  const rankOverlay = el('rankOverlay');
   const controls = el('controls');
+
+  // ---------- 랭킹(이 기기/브라우저에만 저장) ----------
+  const RANKING_KEY = 'noteRushRanking_v1';
+  const RANKING_MAX = 10;
+  function loadRanking(){
+    try {
+      const raw = localStorage.getItem(RANKING_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch(e){ return []; }
+  }
+  function addRankingEntry(name, score){
+    const list = loadRanking();
+    list.push({ name: (name || '이름없음').slice(0, 12), score, date: new Date().toISOString().slice(0, 10) });
+    list.sort((a, b) => b.score - a.score);
+    list.length = Math.min(list.length, RANKING_MAX);
+    try { localStorage.setItem(RANKING_KEY, JSON.stringify(list)); } catch(e){}
+  }
+  function renderRankingList(){
+    const list = loadRanking();
+    const listEl = el('rankingList');
+    listEl.innerHTML = '';
+    if(list.length === 0){
+      const li = document.createElement('li');
+      li.className = 'rankEmpty';
+      li.textContent = '아직 등록된 기록이 없어요.';
+      listEl.appendChild(li);
+      return;
+    }
+    list.forEach((r, i) => {
+      const li = document.createElement('li');
+      const num = document.createElement('span'); num.className = 'rankNum'; num.textContent = `${i + 1}`;
+      const name = document.createElement('span'); name.className = 'rankName'; name.textContent = r.name;
+      const score = document.createElement('span'); score.className = 'rankScore'; score.textContent = `${r.score}점`;
+      li.append(num, name, score);
+      listEl.appendChild(li);
+    });
+  }
+  // overOverlay/winOverlay에 각각 붙는 "이름 입력 → 랭킹 등록/건너뛰기" 미니 폼.
+  // 라운드가 끝날 때마다 resetRankEntry*()로 새 폼 상태로 되돌려준다.
+  function setupRankEntry(prefix, getScore){
+    const form = el('rankForm' + prefix);
+    const saved = el('rankSaved' + prefix);
+    const input = el('rankName' + prefix);
+    const submit = () => {
+      addRankingEntry(input.value.trim(), getScore());
+      form.classList.add('hidden');
+      saved.classList.remove('hidden');
+    };
+    const skip = () => {
+      form.classList.add('hidden');
+      saved.classList.add('hidden');
+    };
+    const submitBtn = el('rankSubmit' + prefix), skipBtn = el('rankSkip' + prefix);
+    submitBtn.addEventListener('touchstart', e => { e.preventDefault(); submit(); }, {passive:false});
+    submitBtn.addEventListener('click', submit);
+    skipBtn.addEventListener('touchstart', e => { e.preventDefault(); skip(); }, {passive:false});
+    skipBtn.addEventListener('click', skip);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+    return () => {
+      form.classList.remove('hidden');
+      saved.classList.add('hidden');
+      input.value = '';
+    };
+  }
+  const resetRankEntryOver = setupRankEntry('Over', () => state.score);
+  const resetRankEntryWin = setupRankEntry('Win', () => state.score);
+
+  const viewRankBtn = el('viewRankBtn'), closeRankBtn = el('closeRankBtn');
+  const openRanking = e => {
+    if(e) e.preventDefault();
+    renderRankingList();
+    startOverlay.classList.add('hidden');
+    rankOverlay.classList.remove('hidden');
+  };
+  const closeRanking = e => {
+    if(e) e.preventDefault();
+    rankOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  };
+  viewRankBtn.addEventListener('touchstart', openRanking, {passive:false});
+  viewRankBtn.addEventListener('click', openRanking);
+  closeRankBtn.addEventListener('touchstart', closeRanking, {passive:false});
+  closeRankBtn.addEventListener('click', closeRanking);
 
   // ---------- 반응형 캔버스 ----------
   let W = 0, H = 0, geo = null;
@@ -579,6 +725,7 @@
     state.screen = 'gameover';
     el('overText').textContent =
       `${state.song.title}, ${state.songPos}/${state.song.sequence.length}음까지 갔어요. 점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
+    resetRankEntryOver();
     overOverlay.classList.remove('hidden');
   }
   function victory(){
@@ -588,6 +735,7 @@
     el('winHeading').textContent = `${state.song.title} 완주!`;
     el('winText').textContent =
       `끝까지 연주했어요! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+    resetRankEntryWin();
     winOverlay.classList.remove('hidden');
   }
 
@@ -599,6 +747,7 @@
     startOverlay.classList.add('hidden');
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
+    rankOverlay.classList.add('hidden');
     renderHUD();
     spawnNote();
     lastTime = performance.now();
