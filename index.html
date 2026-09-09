@@ -217,6 +217,7 @@
       <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
       <button type="button" class="songBtn" data-song="1">학교종이 땡땡땡</button>
       <button type="button" class="songBtn" data-song="2">나비야</button>
+      <button type="button" class="songBtn" data-song="3">🎲 랜덤</button>
     </div>
     <button type="button" class="linkBtn" id="previewBtn">▶ 멜로디 미리듣기</button>
     <div class="sectionLabel">속도 선택</div>
@@ -388,7 +389,7 @@
     else if(audioCtx) audioCtx.resume().then(play);
   }
   const previewBtn = el('previewBtn');
-  const firePreview = e => { e.preventDefault(); previewSong(SONGS[selectedSongIndex]); };
+  const firePreview = e => { e.preventDefault(); previewSong(getSelectedSong()); };
   previewBtn.addEventListener('touchstart', firePreview, {passive:false});
   previewBtn.addEventListener('click', firePreview);
 
@@ -454,6 +455,19 @@
     b.addEventListener('click', pick);
   });
 
+  // "랜덤"은 목록에 없는 고정곡이 아니라, 고를 때마다 8개 음 중에서 매번 새로
+  // 뽑아 만든 시퀀스다 — SONGS 배열 길이(3)를 그대로 "랜덤" 인덱스로 쓴다.
+  const RANDOM_LENGTH = 40;
+  function buildRandomSequence(){
+    return Array.from({length: RANDOM_LENGTH}, () => Math.floor(Math.random() * NOTES.length));
+  }
+  function getSelectedSong(){
+    if(selectedSongIndex === SONGS.length){
+      return { title:'랜덤', sequence: buildRandomSequence() };
+    }
+    return SONGS[selectedSongIndex];
+  }
+
   // ---------- 게임 상태 ----------
   let state;
   function resetState(){
@@ -462,7 +476,7 @@
       score:0, combo:0, maxCombo:0,
       lives:3, correct:0, misses:0,
       level:1, travelTime:baseTravel,  // 판정선까지 도달 시간(초) — 화면 크기와 무관
-      song: SONGS[selectedSongIndex],
+      song: getSelectedSong(),
       songPos:0,
       current:null,
     };

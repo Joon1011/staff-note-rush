@@ -82,6 +82,10 @@
   .score{color:var(--teal);}
 
   .beatBar{display:flex; justify-content:center; align-items:center; gap:8px; flex-shrink:0;}
+  .beatInfo{
+    font-family:'Space Mono',monospace; color:var(--text-muted);
+    font-size:clamp(.66rem, 2.6vw, .82rem); letter-spacing:.02em;
+  }
   .beatDot{
     width:12px; height:12px; border-radius:50%;
     background:var(--teal); transition:transform .09s ease-out, background .09s ease-out;
@@ -212,7 +216,10 @@
     <div class="score" id="scoreLabel">점수 0</div>
   </div>
 
-  <div class="beatBar"><div class="beatDot" id="beatDot"></div></div>
+  <div class="beatBar">
+    <div class="beatDot" id="beatDot"></div>
+    <div class="beatInfo" id="beatInfo">BPM – · 스테이지 –</div>
+  </div>
 
   <div class="arena" id="arena">
     <div class="moleGrid" id="moleGrid"></div>
@@ -242,7 +249,7 @@
   </div>
 
   <div class="overlay hidden" id="winOverlay">
-    <h2>라운드 클리어!</h2>
+    <h2 id="winHeading">라운드 클리어!</h2>
     <div class="stars" id="starsLabel"></div>
     <p id="winText"></p>
     <button class="primaryBtn" id="againBtn">한 번 더 하기</button>
@@ -255,12 +262,24 @@
   "use strict";
 
   const HOLE_COUNT = 4;
-  const TOTAL_BEATS = 32;   // 한 라운드 길이
   const LEAD_IN_BEATS = 2;  // 두더지 없이 박자만 먼저 들려주는 예비 박자
+
+  // 스테이지가 올라갈수록 라운드가 길어지고 박자가 빨라진다("스테이지
+  // 늘려줘" 피드백 반영). 배속(factor)은 시작 화면에서 고른 기본 박자에
+  // 곱해지는 값이라, "느리게/보통/빠르게"를 고른 상태에서도 스테이지 진행에
+  // 따라 똑같은 비율로 계속 빨라진다.
+  const STAGES = [
+    { beats:20, factor:1.00 },
+    { beats:24, factor:0.88 },
+    { beats:28, factor:0.78 },
+    { beats:32, factor:0.68 },
+    { beats:36, factor:0.58 },
+  ];
+  const MIN_BEAT_MS = 260;
 
   const el = id => document.getElementById(id);
   const livesEl = el('lives'), comboEl = el('comboLabel'), scoreEl = el('scoreLabel');
-  const beatDot = el('beatDot');
+  const beatDot = el('beatDot'), beatInfoEl = el('beatInfo');
   const moleGrid = el('moleGrid');
   const toastEl = el('toast');
   const startOverlay = el('startOverlay'), overOverlay = el('overOverlay'), winOverlay = el('winOverlay');
@@ -347,32 +366,44 @@
 
   // ---------- 박자 빠르기 선택 ----------
   let baseBeatMs = 620;
-  let minBeatMs = 620 * 0.55;
   document.querySelectorAll('.speedBtn').forEach(b => {
     const pick = e => {
       e.preventDefault();
       document.querySelectorAll('.speedBtn').forEach(x => x.classList.remove('selected'));
       b.classList.add('selected');
       baseBeatMs = parseInt(b.dataset.beat, 10);
-      minBeatMs = baseBeatMs * 0.55;
     };
     b.addEventListener('touchstart', pick, {passive:false});
     b.addEventListener('click', pick);
   });
+  function beatMsForStage(idx){
+    return Math.max(Math.round(baseBeatMs * STAGES[idx].factor), MIN_BEAT_MS);
+  }
 
   // ---------- 게임 상태 ----------
   let state, beatTimer = null, beatMs = 620;
 
+  function updateBeatInfo(){
+    const bpm = Math.round(60000 / beatMs);
+    const beatNum = Math.max(state.beatIndex, 0);
+    beatInfoEl.textContent =
+      `BPM ${bpm} · 스테이지 ${state.stageIndex + 1}/${STAGES.length} · ${beatNum}/${state.totalBeats}박자`;
+  }
+
+  // score/maxCombo 등은 스테이지를 넘어가도 계속 누적되는 세션 전체 값이고,
+  // lives/beatIndex/두더지 상태는 스테이지가 바뀔 때마다 startStage()에서
+  // 새로 초기화된다.
   function resetState(){
     state = {
       screen:'start',
       score:0, combo:0, maxCombo:0,
       lives:3, correct:0, misses:0,
+      stageIndex:0, totalBeats:STAGES[0].beats,
       beatIndex:-LEAD_IN_BEATS,
       moleHole:-1, moleResolved:true, lastHole:-1,
       riffPos:0,
     };
-    beatMs = baseBeatMs;
+    beatMs = beatMsForStage(0);
   }
   resetState();
 
@@ -443,7 +474,6 @@
     holeEl.classList.add('hitGood');
     setTimeout(() => holeEl.classList.remove('hitGood', 'up'), 220);
     if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
-    maybeSpeedUp();
     renderHUD();
   }
 
@@ -464,15 +494,6 @@
     }
   }
 
-  function maybeSpeedUp(){
-    if(state.correct > 0 && state.correct % 8 === 0){
-      beatMs = Math.max(beatMs * 0.92, minBeatMs);
-      clearInterval(beatTimer);
-      beatTimer = setInterval(onBeat, beatMs);
-      showToast('템포 업! 🔥');
-    }
-  }
-
   function onBeat(){
     pulseBeatDot();
     playRiffNote(state.riffPos++);
@@ -482,11 +503,12 @@
     if(state.screen !== 'playing') return; // 방금 gameOver로 바뀌었을 수 있음
 
     state.beatIndex++;
-    if(state.beatIndex >= TOTAL_BEATS){
+    if(state.beatIndex >= state.totalBeats){
       clearInterval(beatTimer);
       victory();
       return;
     }
+    updateBeatInfo();
     if(state.beatIndex >= 0) spawnMole();
   }
 
@@ -494,38 +516,72 @@
     state.screen = 'gameover';
     const played = Math.max(state.beatIndex, 0);
     el('overText').textContent =
-      `${played}/${TOTAL_BEATS}박자까지 갔어요. 점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
+      `스테이지 ${state.stageIndex + 1}, ${played}/${state.totalBeats}박자까지 갔어요. ` +
+      `점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
+    onAgain = () => startStage(state.stageIndex);
+    el('retryBtn').textContent = '이 스테이지 다시';
     overOverlay.classList.remove('hidden');
   }
   function victory(){
     state.screen = 'victory';
-    const stars = state.misses === 0 ? 3 : state.misses <= 3 ? 2 : 1;
+    const stars = state.misses === 0 ? 3 : state.misses <= 1 ? 2 : 1;
     el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    el('winText').textContent =
-      `한 라운드를 끝까지 쳤어요! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+    const isLast = state.stageIndex >= STAGES.length - 1;
+    if(isLast){
+      el('winHeading').textContent = '모든 스테이지 클리어! 🎉';
+      el('winText').textContent = `끝까지 쳤어요! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+      el('againBtn').textContent = '처음부터 다시';
+      onAgain = () => startGame();
+    } else {
+      el('winHeading').textContent = `스테이지 ${state.stageIndex + 1} 클리어!`;
+      el('winText').textContent = `다음 스테이지는 더 빠르고 길어져요. 현재 점수 ${state.score}점`;
+      el('againBtn').textContent = '다음 스테이지';
+      onAgain = () => startStage(state.stageIndex + 1);
+    }
     winOverlay.classList.remove('hidden');
   }
 
-  function startGame(){
+  // 스테이지 하나를 시작/재시작한다. score·maxCombo는 세션 전체 값이라
+  // 여기서 건드리지 않고, lives/두더지 상태만 그 스테이지 기준으로 새로 잡는다.
+  function startStage(idx){
     initAudio();
-    resetState();
+    state.stageIndex = idx;
+    state.totalBeats = STAGES[idx].beats;
+    beatMs = beatMsForStage(idx);
     state.screen = 'playing';
+    state.lives = 3;
+    state.combo = 0;
+    state.misses = 0;
+    state.beatIndex = -LEAD_IN_BEATS;
+    state.moleHole = -1; state.moleResolved = true; state.lastHole = -1;
     startOverlay.classList.add('hidden');
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
     holes.forEach(h => h.classList.remove('up','hitGood','hitMiss','shake'));
     renderHUD();
+    updateBeatInfo();
     clearInterval(beatTimer);
-    // 첫 박자를 "시작하기"를 누른 직후 바로 재생한다 — 다음 박자까지
-    // 620ms 넘게 조용히 기다리게 하지 않고, 탭한 제스처와 최대한 가까이
-    // 붙여서 오디오가 확실히 풀리게 한다.
+    // 첫 박자를 버튼을 누른 직후 바로 재생한다 — 다음 박자까지 조용히
+    // 기다리게 하지 않고, 탭한 제스처와 최대한 가까이 붙여서 오디오가
+    // 확실히 풀리게 한다.
     onBeat();
     beatTimer = setInterval(onBeat, beatMs);
   }
-  ['startBtn','retryBtn','againBtn'].forEach(id => {
+
+  function startGame(){
+    resetState();
+    startStage(0);
+  }
+  let onAgain = startGame;
+  el('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
+  el('startBtn').addEventListener('click', startGame);
+  // retryBtn(스테이지 실패)과 againBtn(스테이지 클리어)은 상황에 따라
+  // "이 스테이지 다시"/"다음 스테이지"/"처음부터 다시"로 동작이 바뀌므로,
+  // gameOver()/victory()에서 그때그때 정해주는 onAgain을 그대로 호출한다.
+  ['retryBtn','againBtn'].forEach(id => {
     const b = el(id);
-    b.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
-    b.addEventListener('click', startGame);
+    b.addEventListener('touchstart', e => { e.preventDefault(); onAgain(); }, {passive:false});
+    b.addEventListener('click', () => onAgain());
   });
 
   function backToMenu(){
