@@ -104,14 +104,6 @@
     white-space:nowrap;
   }
   .toast.show{opacity:1; transform:translateX(-50%) scale(1);}
-  .bossBanner{
-    position:absolute; top:8px; left:50%; transform:translateX(-50%);
-    background:var(--coral); color:#330000; font-weight:800;
-    font-size:clamp(.65rem, 2.6vw, .8rem);
-    padding:4px 14px; border-radius:999px; opacity:0; z-index:6;
-    transition:opacity .3s; white-space:nowrap;
-  }
-  .bossBanner.show{opacity:1;}
 
   .controls{
     flex-shrink:0;
@@ -166,8 +158,13 @@
     min-height:52px; margin-top:4px;
   }
   .primaryBtn:active{transform:translateY(3px); border-bottom-width:1px;}
-  .speedPick{display:flex; gap:8px; margin-top:2px;}
-  .speedBtn{
+  .sectionLabel{
+    font-family:'Space Mono',monospace; color:var(--text-muted);
+    font-size:clamp(.6rem, 2.4vw, .7rem); letter-spacing:.04em;
+    margin:2px 0 -6px;
+  }
+  .speedPick, .songPick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+  .speedBtn, .songBtn{
     font-family:'Baloo 2', sans-serif; font-weight:700;
     font-size:clamp(.8rem, 3.4vw, .95rem);
     background:transparent; color:var(--text-muted);
@@ -175,8 +172,13 @@
     padding:9px 18px; min-height:44px; cursor:pointer;
     transition:background .15s, color .15s, border-color .15s;
   }
-  .speedBtn.selected{
+  .speedBtn.selected, .songBtn.selected{
     background:var(--teal); color:var(--bg-deep); border-color:var(--teal);
+  }
+  .linkBtn{
+    background:none; border:none; color:var(--text-muted);
+    font-family:'Baloo 2', sans-serif; font-size:clamp(.75rem, 3vw, .85rem);
+    text-decoration:underline; cursor:pointer; padding:6px; min-height:36px;
   }
   .hint{
     font-family:'Space Mono',monospace;
@@ -189,7 +191,7 @@
 <div class="stage" id="stage">
   <div class="titlebar">
     <h1>♪ 오선보 노트 러시</h1>
-    <p class="sub">음표 자리를 보고 음이름을 누르세요</p>
+    <p class="sub" id="subLabel">동요 계이름을 보고 알맞은 음을 눌러보세요</p>
   </div>
 
   <div class="hud">
@@ -201,17 +203,22 @@
   <div class="canvasWrap" id="canvasWrap">
     <canvas id="game"></canvas>
     <div class="toast" id="toast"></div>
-    <div class="bossBanner" id="bossBanner">⚡ 보스 스테이지 ⚡</div>
   </div>
 
   <div class="controls" id="controls"></div>
 
   <div class="overlay" id="startOverlay">
     <h2>오선보 노트 러시</h2>
-    <p>음표가 오른쪽에서 나타나 왼쪽 판정선으로 흘러와요.
-    판정선에 닿기 전에, 음표가 오선보 위 어디에 있는지 보고
-    알맞은 음이름 버튼을 눌러주세요.</p>
-    <p>하트 3개를 지키며 최대한 멀리 가보세요!</p>
+    <p>음표가 오른쪽에서 나타나 판정선에 닿기 전에, 오선보 위 자리를 보고
+    알맞은 음이름 버튼을 눌러주세요. 정답을 맞힐 때마다 그 음이 소리로 들려서
+    동요 멜로디를 그대로 연주하게 돼요.</p>
+    <div class="sectionLabel">동요 선택</div>
+    <div class="songPick" id="songPick">
+      <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
+      <button type="button" class="songBtn" data-song="1">학교종이 땡땡땡</button>
+      <button type="button" class="songBtn" data-song="2">나비야</button>
+    </div>
+    <div class="sectionLabel">속도 선택</div>
     <div class="speedPick" id="speedPick">
       <button type="button" class="speedBtn" data-speed="3.6">느리게</button>
       <button type="button" class="speedBtn selected" data-speed="2.6">보통</button>
@@ -225,13 +232,15 @@
     <h2>다시 도전해볼까?</h2>
     <p id="overText"></p>
     <button class="primaryBtn" id="retryBtn">다시 시작</button>
+    <button type="button" class="linkBtn" id="menuBtnOver">다른 동요 선택</button>
   </div>
 
   <div class="overlay hidden" id="winOverlay">
-    <h2>보스 스테이지 클리어!</h2>
+    <h2 id="winHeading">완주했어요!</h2>
     <div class="stars" id="starsLabel"></div>
     <p id="winText"></p>
     <button class="primaryBtn" id="againBtn">한 번 더 하기</button>
+    <button type="button" class="linkBtn" id="menuBtnWin">다른 동요 선택</button>
   </div>
 </div>
 
@@ -250,12 +259,49 @@
     { name:'시',  sub:'B4', freq:493.88, step: 4, ledger:false },
     { name:'도′', sub:'C5', freq:523.25, step: 5, ledger:false },
   ];
+  const NOTE_INDEX_BY_NAME = Object.fromEntries(NOTES.map((n, i) => [n.name, i]));
+
+  // 실제 동요 멜로디의 계이름을 그대로 옮겨 정답을 맞힐 때마다 그 노래가
+  // 들리게 한다(단순 무작위 음이 아니라 진짜 노래를 "연주"하는 느낌).
+  // 각 곡의 계이름은 가사 음절 수와 대조해 맞춰본 것 — 혹시 한두 음이
+  // 실제 악보와 다르면 아래 names 배열만 고치면 바로 반영된다.
+  const SONGS = [
+    {
+      title:'곰 세 마리',
+      names:[
+        '도','도','도','도','도','미','솔','솔','미','도',
+        '솔','솔','미','도','솔','솔','솔',
+        '솔','솔','미','도','솔','솔','솔',
+        '솔','솔','미','도','솔','솔','솔','라','솔',
+        '도','솔','도','솔','미','레','도',
+      ],
+    },
+    {
+      title:'학교종이 땡땡땡',
+      names:[
+        '솔','솔','라','라','솔','솔','미',
+        '솔','솔','미','미','레',
+        '솔','솔','라','라','솔','솔','미',
+        '솔','미','레','미','도',
+      ],
+    },
+    {
+      title:'나비야',
+      names:[
+        '솔','미','미','파','레','레','도','레','미','파','솔','솔','솔',
+        '솔','미','미','미','파','레','레','도','미','솔','솔','미','미','미',
+        '레','레','레','레','레','미','파','미','미','미','미','미','파','솔',
+        '솔','미','미','미','파','레','레','도','미','솔','솔','미','미','미',
+      ],
+    },
+  ].map(song => ({ ...song, sequence: song.names.map(nm => NOTE_INDEX_BY_NAME[nm]) }));
 
   const el = id => document.getElementById(id);
   const canvas = el('game'), ctx = canvas.getContext('2d');
   const wrap = el('canvasWrap');
   const livesEl = el('lives'), comboEl = el('comboLabel'), scoreEl = el('scoreLabel');
-  const toastEl = el('toast'), bossBanner = el('bossBanner');
+  const subEl = el('subLabel');
+  const toastEl = el('toast');
   const startOverlay = el('startOverlay'), overOverlay = el('overOverlay'), winOverlay = el('winOverlay');
   const controls = el('controls');
 
@@ -359,7 +405,6 @@
   // ---------- 속도 선택 ----------
   let baseTravel = 2.6;    // 기본 "보통"
   let minTravel  = 1.2;    // 레벨업 하한
-  let bossTravel = 1.05;   // 보스 스테이지
   document.querySelectorAll('.speedBtn').forEach(b => {
     const pick = e => {
       e.preventDefault();
@@ -367,7 +412,19 @@
       b.classList.add('selected');
       baseTravel = parseFloat(b.dataset.speed);
       minTravel  = baseTravel * 0.46;
-      bossTravel = baseTravel * 0.40;
+    };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
+  });
+
+  // ---------- 동요 선택 ----------
+  let selectedSongIndex = 0;
+  document.querySelectorAll('.songBtn').forEach((b, i) => {
+    const pick = e => {
+      e.preventDefault();
+      document.querySelectorAll('.songBtn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      selectedSongIndex = i;
     };
     b.addEventListener('touchstart', pick, {passive:false});
     b.addEventListener('click', pick);
@@ -381,7 +438,8 @@
       score:0, combo:0, maxCombo:0,
       lives:3, correct:0, misses:0,
       level:1, travelTime:baseTravel,  // 판정선까지 도달 시간(초) — 화면 크기와 무관
-      boss:false, bossHits:0, bossTarget:8,
+      song: SONGS[selectedSongIndex],
+      songPos:0,
       current:null,
     };
   }
@@ -397,6 +455,9 @@
     }
     comboEl.textContent = `콤보 ${state.combo}`;
     scoreEl.textContent = `점수 ${state.score}`;
+    if(state.screen === 'playing'){
+      subEl.textContent = `${state.song.title} · ${state.songPos}/${state.song.sequence.length}`;
+    }
   }
 
   let toastTimer = null;
@@ -409,11 +470,16 @@
 
   function spawnNote(){
     if(state.screen !== 'playing') return;
-    let pool = NOTES.map((_, i) => i);
-    if(!state.boss && state.level === 1) pool = [2, 4, 6, 0];  // 미 솔 시 도
-    else if(!state.boss && state.level === 2) pool = [0, 2, 4, 6, 7];
-    const idx = pool[Math.floor(Math.random() * pool.length)];
+    const idx = state.song.sequence[state.songPos];
     state.current = { idx, x: geo.spawnX, resolved:false, flashFrames:0, flashType:null };
+  }
+
+  // 정답이든 오답이든 노래는 계속 앞으로 흘러간다 — 한 음에서 막혀버리면
+  // 안 되니, 다음 음으로 넘어가고 그게 노래의 끝이면 클리어 처리한다.
+  function advanceSong(delay){
+    state.songPos++;
+    if(state.songPos >= state.song.sequence.length) setTimeout(victory, delay);
+    else setTimeout(spawnNote, delay);
   }
 
   function answer(idx, btn){
@@ -427,10 +493,10 @@
       state.score += 10 + Math.min(state.combo, 10) * 2;
       tone(NOTES[idx].freq);
       flashBtn(btn, 'correctFlash');
-      if(state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
+      if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
+      maybeLevelUp();
       renderHUD();
-      handleProgress();
-      setTimeout(spawnNote, 90);
+      advanceSong(90);
     } else {
       n.resolved = true;
       n.flashFrames = 20; n.flashType = 'wrong';
@@ -439,7 +505,7 @@
       flashBtn(btn, 'wrongFlash');
       renderHUD();
       if(state.lives <= 0) setTimeout(gameOver, 300);
-      else setTimeout(spawnNote, 550);
+      else advanceSong(550);
     }
   }
   function flashBtn(btn, cls){
@@ -448,26 +514,12 @@
     setTimeout(() => btn.classList.remove(cls), 220);
   }
 
-  function handleProgress(){
-    if(state.boss){
-      state.bossHits++;
-      if(state.bossHits >= state.bossTarget) setTimeout(victory, 250);
-      return;
-    }
-    if(state.correct % 5 === 0){
+  function maybeLevelUp(){
+    if(state.correct > 0 && state.correct % 5 === 0){
       state.level++;
       state.travelTime = Math.max(state.travelTime / 1.18, minTravel);
       showToast('레벨 업! 조금 더 빨라져요 🎵');
     }
-    if(state.correct >= 20) startBoss();
-  }
-
-  function startBoss(){
-    state.boss = true;
-    state.bossHits = 0;
-    state.travelTime = bossTravel;
-    bossBanner.classList.add('show');
-    showToast('보스 스테이지! 8개 연속 도전', 1500);
   }
 
   function missCurrent(){
@@ -478,22 +530,22 @@
     buzz();
     renderHUD();
     if(state.lives <= 0) setTimeout(gameOver, 250);
-    else setTimeout(spawnNote, 450);
+    else advanceSong(450);
   }
 
   function gameOver(){
     state.screen = 'gameover';
     el('overText').textContent =
-      `점수 ${state.score}점, 최대 콤보 ${state.maxCombo}까지 갔어요. 다음엔 더 잘할 수 있어요!`;
+      `${state.song.title}, ${state.songPos}/${state.song.sequence.length}음까지 갔어요. 점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
     overOverlay.classList.remove('hidden');
   }
   function victory(){
     state.screen = 'victory';
-    bossBanner.classList.remove('show');
     const stars = state.misses === 0 ? 3 : state.misses <= 2 ? 2 : 1;
     el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    el('winHeading').textContent = `${state.song.title} 완주!`;
     el('winText').textContent =
-      `보스 스테이지까지 클리어! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+      `끝까지 연주했어요! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
     winOverlay.classList.remove('hidden');
   }
 
@@ -505,7 +557,6 @@
     startOverlay.classList.add('hidden');
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
-    bossBanner.classList.remove('show');
     renderHUD();
     spawnNote();
     lastTime = performance.now();
@@ -515,6 +566,18 @@
     const b = el(id);
     b.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
     b.addEventListener('click', startGame);
+  });
+
+  function backToMenu(){
+    state.screen = 'start';
+    overOverlay.classList.add('hidden');
+    winOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  }
+  ['menuBtnOver','menuBtnWin'].forEach(id => {
+    const b = el(id);
+    b.addEventListener('touchstart', e => { e.preventDefault(); backToMenu(); }, {passive:false});
+    b.addEventListener('click', backToMenu);
   });
 
   // 백그라운드 전환 시 일시정지 → 복귀 시 재개
@@ -591,10 +654,6 @@
     lastTime = t;
 
     ctx.clearRect(0, 0, W, H);
-    if(state.boss){
-      ctx.fillStyle = 'rgba(255,107,107,0.055)';
-      ctx.fillRect(0, 0, W, H);
-    }
     drawStaff();
 
     const n = state.current;
