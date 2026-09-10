@@ -76,17 +76,29 @@
     flex-shrink:0;
   }
   .lives{display:flex; gap:3px; font-size:1.15em;}
-  .heart{transition:opacity .25s, transform .25s;}
+  .heart{transition:opacity .25s, transform .25s; display:inline-block;}
   .heart.off{opacity:.16; transform:scale(.8);}
-  .combo{color:var(--coral); font-weight:700;}
+  .heart.lost{ animation:heartShake .5s ease-out; }
+  @keyframes heartShake{
+    0%{ transform:scale(1.4) rotate(0); opacity:1; }
+    25%{ transform:scale(1.3) rotate(-14deg); }
+    50%{ transform:scale(1.2) rotate(12deg); }
+    75%{ transform:scale(1) rotate(-6deg); }
+    100%{ transform:scale(.8) rotate(0); opacity:.16; }
+  }
+  .combo{color:var(--coral); font-weight:700; display:inline-block;}
+  .combo.bump{ animation:comboBump .28s ease-out; }
+  @keyframes comboBump{ 0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1);} }
   .score{color:var(--teal);}
 
   .beatBar{display:flex; justify-content:center; align-items:center; gap:8px; flex-shrink:0;}
   .beatDot{
     width:12px; height:12px; border-radius:50%;
-    background:var(--teal); transition:transform .09s ease-out, background .09s ease-out;
+    background:var(--teal); transition:transform .09s ease-out, background .09s ease-out, box-shadow .09s ease-out;
   }
-  .beatDot.pulse{ transform:scale(1.7); background:var(--gold); }
+  /* 정박(1박)은 크게·금색, 반박은 작게·청록으로 구분해서 눈으로도 박이 세어진다 */
+  .beatDot.pulse{ transform:scale(1.35); background:#7fe3dc; }
+  .beatDot.pulse.strong{ transform:scale(1.9); background:var(--gold); box-shadow:0 0 12px 3px rgba(255,200,87,.5); }
   .beatInfo{
     font-family:'Space Mono',monospace; color:var(--text-muted);
     font-size:clamp(.62rem, 2.4vw, .78rem); letter-spacing:.02em;
@@ -115,15 +127,64 @@
     font-family:'Space Mono',monospace; font-size:clamp(.48rem, 1.8vw, .58rem);
     color:var(--text-muted); margin-top:2px;
   }
-  .noteBar.current{ background:var(--gold); border-color:var(--gold); transform:scale(1.1); }
+  .noteBar.next{ border-color:#8a76c9; }
+  .noteBar.hit{ background:#1d5f5b; border-color:var(--teal); }
+  .noteBar.missed{ background:#5a2440; border-color:var(--coral); }
+  .noteBar.current{ background:var(--gold); border-color:var(--gold); transform:scale(1.1); box-shadow:0 0 10px rgba(255,200,87,.45); }
   .noteBar.current .noteSymbol, .noteBar.current .noteBeatLabel{ color:var(--bg-deep); }
+
+  /* 스테이지 진행 바 — 지금 몇 번째 틱인지 숫자보다 한눈에 보인다 */
+  .progressBar{
+    height:5px; border-radius:3px; background:#150e29; border:1px solid #40315f;
+    overflow:hidden; flex-shrink:0;
+  }
+  .progressFill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--teal), var(--gold));
+    transition:width .12s linear;
+  }
 
   .arena{
     position:relative; flex:1 1 auto; min-height:140px;
     border-radius:12px; overflow:hidden; cursor:pointer;
     background:linear-gradient(180deg, #0a0620 0%, #1a1140 55%, #241a46 100%);
     border:1px solid #40315f;
+    transition:border-color .12s ease-out, box-shadow .12s ease-out;
   }
+  /* 정박마다 아레나 테두리가 살짝 빛나서 박자를 시야 가장자리로도 느낄 수 있다 */
+  .arena.beat{ border-color:rgba(255,200,87,.55); box-shadow:inset 0 0 18px rgba(255,200,87,.12); transition:none; }
+  /* 밤하늘 별 — 폭죽이 없을 때도 화면이 비어 보이지 않게 */
+  .arena::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 8% 18%, rgba(255,255,255,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 42%, rgba(255,255,255,.5) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 35% 12%, rgba(255,255,255,.6) 50%, transparent 51%),
+      radial-gradient(1px 1px at 48% 30%, rgba(255,255,255,.45) 50%, transparent 51%),
+      radial-gradient(2px 2px at 61% 8%, rgba(255,255,255,.75) 50%, transparent 51%),
+      radial-gradient(1px 1px at 72% 38%, rgba(255,255,255,.5) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 86% 20%, rgba(255,255,255,.65) 50%, transparent 51%),
+      radial-gradient(1px 1px at 93% 48%, rgba(255,255,255,.45) 50%, transparent 51%),
+      radial-gradient(1px 1px at 15% 60%, rgba(255,255,255,.35) 50%, transparent 51%),
+      radial-gradient(1px 1px at 55% 55%, rgba(255,255,255,.4) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 78% 62%, rgba(255,255,255,.4) 50%, transparent 51%);
+    animation:twinkle 3.2s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle{ from{opacity:.55;} to{opacity:1;} }
+  /* 지평선 도시 실루엣 + 은은한 지평선 빛 */
+  .arena::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:22%;
+    pointer-events:none;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 40' preserveAspectRatio='none'%3E%3Cpath fill='%23090518' d='M0 40V28h12V18h8v10h14V22h10v6h16V12h8v16h12V24h10v4h20V16h8v12h14V20h10v8h16V10h6v18h12V26h10v2h18V14h8v14h14V22h10v6h16V8h8v20h12V24h10v4h20V18h8v10h14V20h10v8h20V12h8v16h12V26h10v2h12V40z'/%3E%3C/svg%3E") bottom/100% 100% no-repeat,
+      linear-gradient(180deg, transparent 0%, rgba(78,205,196,.10) 100%);
+  }
+  .missVignette{
+    position:absolute; inset:0; pointer-events:none; z-index:3;
+    box-shadow:inset 0 0 46px 12px rgba(255,107,107,.6);
+    opacity:0; transition:opacity .4s ease-out;
+  }
+  .missVignette.show{ opacity:1; transition:none; }
   .arenaHint{
     position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
     font-family:'Space Mono',monospace; font-size:clamp(.6rem, 2.4vw, .72rem);
@@ -161,10 +222,40 @@
     55%{ transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.85); opacity:1; }
     100%{ transform:translate(calc(-50% + var(--dx2)), calc(-50% + var(--dy2))) scale(.1); opacity:0; }
   }
+  /* 폭발 뒤에 남는 부드러운 잔광 — 스파크가 사라진 뒤에도 하늘에 색이 잠깐 머문다 */
+  .glow{
+    position:absolute; width:170px; height:170px; border-radius:50%;
+    transform:translate(-50%,-50%); pointer-events:none;
+    background:radial-gradient(circle, var(--flash-color, var(--gold)) 0%, transparent 62%);
+    mix-blend-mode:screen;
+    animation:glowFade 1.15s ease-out forwards;
+  }
+  @keyframes glowFade{
+    0%{ opacity:.6; transform:translate(-50%,-50%) scale(.7); }
+    100%{ opacity:0; transform:translate(-50%,-50%) scale(1.25); }
+  }
   .crackle{
     position:absolute; width:3px; height:3px; border-radius:50%;
     background:#fff; transform:translate(-50%,-50%); pointer-events:none;
+    box-shadow:0 0 3px 1px rgba(255,255,255,.7);
     animation:crackleBurst .45s ease-out forwards;
+  }
+  /* 맞췄을 때 얻은 점수가 폭죽 옆에서 떠오른다 */
+  .scorePop{
+    position:absolute; transform:translate(-50%,-50%); pointer-events:none;
+    font-family:'Baloo 2', sans-serif; font-weight:800; color:var(--gold);
+    font-size:clamp(.95rem, 4vw, 1.3rem);
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+    animation:scoreRise .85s ease-out forwards; z-index:2;
+  }
+  @keyframes scoreRise{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+    20%{ opacity:1; transform:translate(-50%,-70%) scale(1.15); }
+    100%{ opacity:0; transform:translate(-50%,-160%) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .arena::before{ animation:none; }
+    .spark, .crackle, .glow{ animation-duration:.35s; }
   }
   @keyframes crackleBurst{
     0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
@@ -203,6 +294,13 @@
     font-size:clamp(.8rem, 3.2vw, .95rem);
   }
   .stars{font-size:clamp(1.8rem, 8vw, 2.4rem); letter-spacing:6px;}
+  .stageDots{ display:flex; gap:8px; align-items:center; }
+  .stageDot{
+    width:11px; height:11px; border-radius:50%; background:#4a3a80;
+    border:2px solid #4a3a80; transition:background .2s, border-color .2s;
+  }
+  .stageDot.done{ background:var(--teal); border-color:var(--teal); }
+  .stageDot.cur{ background:var(--gold); border-color:var(--gold); box-shadow:0 0 8px rgba(255,200,87,.6); }
   .primaryBtn{
     font-family:'Baloo 2', sans-serif; font-weight:800;
     font-size:clamp(.95rem, 4vw, 1.1rem);
@@ -302,9 +400,11 @@
 
   <div class="rhythmLabel" id="rhythmLabel">♩ 4분음표 (1박)</div>
   <div class="rhythmStrip" id="rhythmStrip"></div>
+  <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
 
   <div class="arena" id="arena">
     <div class="arenaHint">탭해서 발사!</div>
+    <div class="missVignette" id="missVignette"></div>
     <div class="toast" id="toast"></div>
     <div class="countdown" id="countdownEl"></div>
   </div>
@@ -334,6 +434,7 @@
 
   <div class="overlay hidden" id="overOverlay">
     <h2>다시 도전해볼까?</h2>
+    <div class="stageDots" id="stageDotsOver"></div>
     <p id="overText"></p>
     <div class="rankEntry" id="rankEntryOver">
       <div class="rankForm" id="rankFormOver">
@@ -352,6 +453,7 @@
   <div class="overlay hidden" id="winOverlay">
     <h2 id="winHeading">스테이지 클리어!</h2>
     <div class="stars" id="starsLabel"></div>
+    <div class="stageDots" id="stageDotsWin"></div>
     <p id="winText"></p>
     <div class="rankEntry" id="rankEntryWin">
       <div class="rankForm" id="rankFormWin">
@@ -527,11 +629,12 @@
       } catch(e) {} // fetch 자체가 없거나 동기적으로 던지는 환경 방어
     });
   }
-  function playSample(name, gainValue){
+  function playSample(name, gainValue, rate = 1){
     const buffer = soundBuffers[name];
     if(!audioCtx || !buffer) return false;
     const src = audioCtx.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = rate;
     const g = audioCtx.createGain();
     g.gain.value = gainValue;
     src.connect(g).connect(audioCtx.destination);
@@ -546,20 +649,23 @@
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     loadSounds();
   }
-  function tickClick(){
-    if(playSample('tick', 0.35)) return;
+  // 정박(accent=true)은 조금 크고 낮게, 반박은 작고 가볍게 — 메트로놈처럼
+  // "똑-딱-똑-딱"으로 들려서 1박이 어디인지 귀로 셀 수 있다. 박자 간격 자체는 그대로다.
+  function tickClick(accent){
+    if(playSample('tick', accent ? 0.42 : 0.22, accent ? 1 : 1.25)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'square'; o.frequency.value = 900;
+    o.type = 'square'; o.frequency.value = accent ? 900 : 1200;
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.004);
+    g.gain.exponentialRampToValueAtTime(accent ? 0.09 : 0.05, t0 + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.04);
     o.connect(g).connect(audioCtx.destination);
     o.start(t0); o.stop(t0 + 0.05);
   }
   function explosionSound(){
-    if(playSample('explosion', 0.7)) return;
+    // 매번 똑같은 "펑"이 아니라 살짝 높낮이를 흔들어서 연달아 터져도 단조롭지 않게
+    if(playSample('explosion', 0.7, 0.9 + Math.random() * 0.2)) return;
     // 합성음 폴백 — 낮은 톤에서 떨어지는 간단한 "펑" 느낌
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
@@ -624,6 +730,18 @@
     const tickNum = Math.max(state.tickIndex, 0);
     beatInfoEl.textContent =
       `BPM ${bpm} (${term}) · 스테이지 ${state.stageIndex + 1}/${STAGES.length} · ${tickNum}/${state.totalTicks}틱`;
+    el('progressFill').style.width = state.totalTicks ? (tickNum / state.totalTicks * 100) + '%' : '0%';
+  }
+  // clearedCurrent: 지금 스테이지를 방금 깬 화면(클리어)이면 그 점도 완료 색으로.
+  function renderStageDots(container, clearedCurrent){
+    container.innerHTML = '';
+    const doneUpTo = clearedCurrent ? state.stageIndex : state.stageIndex - 1;
+    STAGES.forEach((_, i) => {
+      const d = document.createElement('span');
+      d.className = 'stageDot' + (i <= doneUpTo ? ' done' : i === state.stageIndex ? ' cur' : '');
+      d.title = `스테이지 ${i + 1}: ${STAGES[i].title}`;
+      container.appendChild(d);
+    });
   }
 
   function resetState(){
@@ -633,7 +751,7 @@
       lives:3, misses:0,
       stageIndex:0,
       tickIndex:-LEAD_IN_TICKS - 1,
-      pendingOnset:false, pendingResolved:true, pendingOnsetDeadlineTick:0,
+      pendingOnset:false, pendingResolved:true, pendingOnsetDeadlineTick:0, pendingOnsetElIdx:0,
       lastCountdownBeat:null,
     };
     beatMs = beatMsForStage(0);
@@ -641,16 +759,22 @@
   }
   resetState();
 
-  function renderHUD(){
+  // lostIndex: 방금 잃은 하트 자리 — 그 하트만 흔들리며 꺼진다.
+  function renderHUD(lostIndex = -1){
     livesEl.innerHTML = '';
     for(let i = 0; i < 3; i++){
       const s = document.createElement('span');
-      s.className = 'heart' + (i < state.lives ? '' : ' off');
+      s.className = 'heart' + (i < state.lives ? '' : ' off') + (i === lostIndex ? ' lost' : '');
       s.textContent = '♥';
       livesEl.appendChild(s);
     }
     comboEl.textContent = `콤보 ${state.combo}`;
     scoreEl.textContent = `점수 ${state.score}`;
+  }
+  function bumpCombo(){
+    comboEl.classList.remove('bump');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('bump');
   }
 
   let toastTimer = null;
@@ -661,9 +785,14 @@
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
   }
 
-  function pulseBeatDot(){
+  function pulseBeatDot(strong){
     beatDot.classList.add('pulse');
-    setTimeout(() => beatDot.classList.remove('pulse'), 110);
+    beatDot.classList.toggle('strong', !!strong);
+    if(strong) arena.classList.add('beat');
+    setTimeout(() => {
+      beatDot.classList.remove('pulse', 'strong');
+      arena.classList.remove('beat');
+    }, 110);
   }
 
   // 시작하기를 누른 직후 언제부터 진짜 시작인지 헷갈린다는 피드백을 반영 —
@@ -700,8 +829,27 @@
     return { elIdx, offset: posInLoop - e.startTick, info: NOTE_INFO[e.sym] };
   }
   function updateStripHighlight(elIdx, info){
-    [...rhythmStripEl.children].forEach((bar, i) => bar.classList.toggle('current', i === elIdx));
+    const bars = [...rhythmStripEl.children];
+    // 한 바퀴(loop)가 새로 시작되면 지난 바퀴의 맞춤/놓침 색을 지운다.
+    if(elIdx === 0){
+      const { offset } = currentElementAndOffset(state.tickIndex);
+      if(offset === 0) bars.forEach(b => b.classList.remove('hit', 'missed'));
+    }
+    const nextIdx = (elIdx + 1) % bars.length;
+    bars.forEach((bar, i) => {
+      bar.classList.toggle('current', i === elIdx);
+      bar.classList.toggle('next', i === nextIdx);
+    });
     rhythmLabelEl.textContent = `${info.symbol} ${info.label} (${info.beat})`;
+  }
+  // 현재 음표 칸에 맞춤/놓침 결과를 남겨서 한 마디 안에서 어디를 틀렸는지 보인다.
+  function markCurrentBar(cls, elIdxOverride){
+    if(state.tickIndex < 0) return;
+    const elIdx = (elIdxOverride !== undefined) ? elIdxOverride : currentElementAndOffset(state.tickIndex).elIdx;
+    const bar = rhythmStripEl.children[elIdx];
+    if(!bar) return;
+    bar.classList.remove('hit', 'missed');
+    bar.classList.add(cls);
   }
 
   // ---------- 불꽃 연출 ----------
@@ -713,17 +861,32 @@
     ['#FF6B6B', '#FFC857', '#4ECDC4'],
     ['#4ECDC4', '#FFC857'],
   ];
+  const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function launchFirework(xPct){
     const peakPct = 45 + Math.random() * 22; // 45~67% 높이에서 랜덤하게 터짐
     burst(xPct, peakPct, false);
     // 살짝 늦게 한 번 더, 더 작고 은은하게 — 잔불이 반짝이는 크래클 효과.
     setTimeout(() => burst(xPct, peakPct, true), 180 + Math.random() * 80);
+    return peakPct;
+  }
+  // 콤보 5·10·15…를 찍는 순간 — 양옆에 작은 축하 폭죽이 연달아 따라 터진다.
+  function celebrationBurst(xPct){
+    [[-14, 140], [14, 260]].forEach(([dx, delay]) => {
+      setTimeout(() => {
+        if(state.screen !== 'playing') return;
+        const x = Math.max(8, Math.min(92, xPct + dx));
+        burst(x, 38 + Math.random() * 18, false, true);
+      }, delay);
+    });
   }
 
-  function burst(xPct, topPct, isCrackle){
+  function burst(xPct, topPct, isCrackle, quiet){
     const palette = SPARK_PALETTES[Math.floor(Math.random() * SPARK_PALETTES.length)];
+    // 30%는 고르게 둥근 "링" 모양으로 터져서 매번 같은 흩뿌림이 아니게
+    const ring = !isCrackle && Math.random() < 0.3;
     if(!isCrackle){
-      explosionSound();
+      if(!quiet) explosionSound();
       const flash = document.createElement('div');
       flash.className = 'flash';
       flash.style.left = xPct + '%';
@@ -731,13 +894,22 @@
       flash.style.setProperty('--flash-color', palette[0]);
       arena.appendChild(flash);
       setTimeout(() => flash.remove(), 320);
+      const glow = document.createElement('div');
+      glow.className = 'glow';
+      glow.style.left = xPct + '%';
+      glow.style.top = topPct + '%';
+      glow.style.setProperty('--flash-color', palette[palette.length - 1]);
+      arena.appendChild(glow);
+      setTimeout(() => glow.remove(), 1200);
     }
-    const count = isCrackle ? 10 : 30;
+    let count = isCrackle ? 10 : (ring ? 36 : 30);
+    if(REDUCED_MOTION) count = Math.ceil(count / 3);
+    const ringDist = 46 + Math.random() * 20;
     for(let i = 0; i < count; i++){
       const s = document.createElement('div');
       s.className = isCrackle ? 'crackle' : 'spark';
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.35;
-      const dist = isCrackle ? (14 + Math.random() * 16) : (30 + Math.random() * 42);
+      const angle = (Math.PI * 2 * i) / count + (ring ? 0 : Math.random() * 0.35);
+      const dist = isCrackle ? (14 + Math.random() * 16) : ring ? ringDist : (30 + Math.random() * 42);
       const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist;
       s.style.setProperty('--dx', dx + 'px');
       s.style.setProperty('--dy', dy + 'px');
@@ -765,6 +937,22 @@
     f.style.left = xPct + '%';
     arena.appendChild(f);
     setTimeout(() => f.remove(), 550);
+  }
+  function scorePop(xPct, topPct, text){
+    const p = document.createElement('div');
+    p.className = 'scorePop';
+    p.textContent = text;
+    p.style.left = xPct + '%';
+    p.style.top = topPct + '%';
+    arena.appendChild(p);
+    setTimeout(() => p.remove(), 900);
+  }
+  let vignetteTimer = null;
+  function missFlash(){
+    const v = el('missVignette');
+    v.classList.add('show');
+    clearTimeout(vignetteTimer);
+    vignetteTimer = setTimeout(() => v.classList.remove('show'), 60);
   }
 
   // ---------- 입력 ----------
@@ -806,21 +994,32 @@
     state.pendingResolved = true;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
-    state.score += 10 + Math.min(state.combo, 10) * 2;
+    const gained = 10 + Math.min(state.combo, 10) * 2;
+    state.score += gained;
     if(navigator.vibrate) navigator.vibrate(18);
-    launchFirework(xPct);
-    if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
+    const peakPct = launchFirework(xPct);
+    scorePop(xPct, peakPct, `+${gained}`);
+    markCurrentBar('hit');
+    if(state.combo > 0 && state.combo % 5 === 0){
+      showToast(`콤보 ${state.combo}! 🔥`);
+      celebrationBurst(xPct);
+    }
     renderHUD();
+    bumpCombo();
   }
 
   // 쉼표/음이 지속되는 구간에 쏘거나, 음표가 시작되는 순간을 놓치면 여기로 온다.
-  function registerFalseShot(xPct){
+  // missedElIdx: 놓친 음표의 스트립 칸 번호(온셋을 놓친 경우). 쉼표/지속 구간에
+  // 잘못 쏜 경우엔 생략되어 지금 진행 중인 칸에 표시된다.
+  function registerFalseShot(xPct, missedElIdx){
     state.combo = 0;
     state.lives--;
     state.misses++;
     buzz();
     fizzle(xPct);
-    renderHUD();
+    missFlash();
+    markCurrentBar('missed', missedElIdx);
+    renderHUD(state.lives); // 방금 꺼진 하트(index = 남은 목숨 수)만 흔들린다
     if(state.lives <= 0){
       clearTimeout(tickTimer);
       gameOver();
@@ -834,7 +1033,7 @@
   function onTick(){
     // 이전 온셋의 판정 유예 시간이 끝났는데 아직 못 맞췄으면 여기서 놓친 것으로 처리.
     if(state.pendingOnset && !state.pendingResolved && state.tickIndex >= state.pendingOnsetDeadlineTick){
-      registerFalseShot(50);
+      registerFalseShot(50, state.pendingOnsetElIdx);
       state.pendingOnset = false;
     }
     if(state.screen !== 'playing') return; // 방금 gameOver로 바뀌었을 수 있음
@@ -845,18 +1044,29 @@
       victory();
       return;
     }
-    pulseBeatDot();
+    // 틱 2개가 1박이므로 짝수 틱이 정박(강), 홀수 틱이 반박(약).
+    const isDownbeat = ((state.tickIndex % 2) + 2) % 2 === 0;
+    pulseBeatDot(isDownbeat);
     updateBeatInfo();
     // 예전엔 실제 플레이 중 틱 소리를 껐었다(발사음+폭발음과 겹쳐 엇박처럼
     // 들린다는 이유) — 하지만 진짜 원인은 setInterval 드리프트였고, 발사음도
     // 이제 없앴으니 틱을 계속 울려서 박자 기준을 끊기지 않게 유지한다.
-    tickClick();
+    tickClick(isDownbeat);
     if(state.tickIndex >= 0){
       const { elIdx, offset, info } = currentElementAndOffset(state.tickIndex);
       updateStripHighlight(elIdx, info);
       if(info.onset && offset === 0){
+        // 새 음표가 시작됐는데 직전 음표를 아직 못 맞췄으면 그건 놓친 것 —
+        // 위의 유예 시간 검사는 틱이 하나 더 지난 뒤에야 걸리기 때문에, 4분음표·
+        // 8분음표가 연달아 오면 여기서 새 음표로 덮어써져 놓침이 아예 기록되지
+        // 않던 문제가 있었다(1스테이지는 손을 안 대도 클리어됐다).
+        if(state.pendingOnset && !state.pendingResolved){
+          registerFalseShot(50, state.pendingOnsetElIdx);
+          if(state.screen !== 'playing') return;
+        }
         state.pendingOnset = true;
         state.pendingResolved = false;
+        state.pendingOnsetElIdx = elIdx;
         state.pendingOnsetDeadlineTick = state.tickIndex + Math.min(HIT_WINDOW_TICKS, info.ticks);
       }
       if(state.tickIndex === 0) showCountdown('시작!', true);
@@ -882,6 +1092,7 @@
       `점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
     onAgain = () => startStage(state.stageIndex);
     el('retryBtn').textContent = '이 스테이지 다시';
+    renderStageDots(el('stageDotsOver'), false);
     resetRankEntryOver();
     overOverlay.classList.remove('hidden');
   }
@@ -889,6 +1100,7 @@
     state.screen = 'victory';
     const stars = state.misses === 0 ? 3 : state.misses <= 1 ? 2 : 1;
     el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    renderStageDots(el('stageDotsWin'), true);
     const isLast = state.stageIndex >= STAGES.length - 1;
     const rankEntryWin = el('rankEntryWin');
     if(isLast){
