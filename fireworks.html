@@ -638,7 +638,7 @@
       score:0, combo:0, maxCombo:0,
       lives:3, correct:0, misses:0,
       stageIndex:0,
-      tickIndex:-LEAD_IN_TICKS,
+      tickIndex:-LEAD_IN_TICKS - 1,
       pendingOnset:false, pendingResolved:true,
       lastCountdownBeat:null,
     };
@@ -928,7 +928,13 @@
     state.lives = 3;
     state.combo = 0;
     state.misses = 0;
-    state.tickIndex = -LEAD_IN_TICKS;
+    // onTick()은 항상 먼저 tickIndex를 ++한 다음에야 그 값으로 화면을 갱신한다
+    // (아래 onTick 참고) — 그래서 여기서 -LEAD_IN_TICKS를 그대로 넣으면 그 값
+    // 자체는 한 번도 화면에 표시되지 못하고 곧장 다음 값으로 넘어가 버린다.
+    // 그 결과 카운트다운의 첫 숫자("3")만 한 틱만큼만(나머지 숫자는 두 틱씩)
+    // 짧게 표시돼 박자가 안 맞아 보였다 — 1을 더 빼서 첫 번째 onTick() 호출이
+    // 정확히 -LEAD_IN_TICKS로 시작하도록 맞춘다.
+    state.tickIndex = -LEAD_IN_TICKS - 1;
     state.pendingOnset = false;
     state.pendingResolved = true;
     state.lastCountdownBeat = null;
