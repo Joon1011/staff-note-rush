@@ -125,8 +125,30 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 .mlabel{font-family:'Gaegu',cursive;font-weight:700;font-size:.8rem;
   color:var(--dim);text-align:center;margin-top:6px;}
 
+.nextPreview{
+  display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0;
+}
+.nextPreview.hidden{display:none;}
+.nextLabel{
+  font-family:'Gaegu',cursive;font-weight:700;font-size:.78rem;
+  color:var(--dim);flex-shrink:0;
+}
+.nextRow{display:flex;gap:5px;flex:1;min-width:0;}
+.nextRow .beat{flex:1;display:flex;gap:2px;min-width:0;}
+.nextRow .cell{
+  flex-grow:var(--w);flex-basis:0;min-width:0;
+  border:3px solid var(--c);border-radius:6px;
+  background:color-mix(in srgb,var(--c) 10%,#fff);
+  font-family:'Gaegu',cursive;font-weight:700;color:var(--c);
+  font-size:clamp(.7rem,4vw,1.65rem);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  height:clamp(80px,18vh,128px);
+  line-height:1.1;text-align:center;padding:1px;overflow:hidden;
+}
+.nextRow .cell .cellNote{font-size:1.2em;}
+
 .tapZone{
-  flex:1;min-height:90px;border:3px dashed var(--line);border-radius:16px;
+  flex:1;min-height:68px;border:3px dashed var(--line);border-radius:16px;
   background:#fff;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:4px;cursor:pointer;
   transition:background .06s,border-color .06s;
@@ -189,6 +211,10 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
       <div class="measRow" id="measRow"></div>
       <div class="playhead" id="playhead"></div>
       <div class="mlabel" id="mlabel">—</div>
+    </div>
+    <div class="nextPreview hidden" id="nextPreview">
+      <span class="nextLabel">다음</span>
+      <div class="nextRow" id="nextRow"></div>
     </div>
     <div class="verdict" id="verdict"></div>
     <div class="tapZone" id="tapZone">
@@ -408,9 +434,9 @@ function buildSequence(){
     seq.push(bar);
   }
 }
-function renderMeasure(mi){
-  const row=$('measRow'); row.innerHTML='';
-  seq[mi].forEach((id,bi)=>{
+function buildBarRow(rowEl, bar, mi, withKeys){
+  rowEl.innerHTML='';
+  bar.forEach((id,bi)=>{
     const p=byId(id);
     const d=document.createElement('div');
     d.className='beat';
@@ -419,13 +445,23 @@ function renderMeasure(mi){
       c.className='cell'; c.style.setProperty('--c',p.c);
       c.style.setProperty('--w', s[1]);
       c.innerHTML = `${s[0]} <span class="cellNote">(${noteCharFor(s[1])}${p.trip ? '³' : ''})</span>`;
-      c.dataset.key = mi+'-'+bi+'-'+si;
+      if(withKeys) c.dataset.key = mi+'-'+bi+'-'+si;
       d.appendChild(c);
     });
-    row.appendChild(d);
+    rowEl.appendChild(d);
   });
+}
+function renderMeasure(mi){
+  buildBarRow($('measRow'), seq[mi], mi, true);
   $('mlabel').textContent = seq[mi].map(id=>byId(id).word).join('  ·  ');
   $('progressLbl').textContent = `${mi+1} / ${MEASURES} 마디`;
+  renderNextPreview(mi);
+}
+function renderNextPreview(mi){
+  const box = $('nextPreview');
+  if(mi+1 >= MEASURES){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  buildBarRow($('nextRow'), seq[mi+1], mi+1, false);
 }
 function buildOnsets(){
   onsets=[];
