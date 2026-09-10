@@ -58,6 +58,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 .rcard .glyph{width:64px;flex-shrink:0;}
 .rcard .info{flex:1;min-width:0;}
 .rcard .fname{font-size:1.05rem;line-height:1.15;}
+.rcard .funicode{font-size:1.15rem;letter-spacing:1px;color:var(--c);line-height:1;margin-top:2px;}
 .rcard .fdesc{font-family:'Gaegu',cursive;font-weight:700;font-size:.92rem;color:var(--dim);}
 .boxes{display:flex;gap:2px;margin-top:5px;height:20px;}
 .boxes span{
@@ -339,6 +340,18 @@ function glyph(p){
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${out}</svg>`;
 }
 
+/* ========== 유니코드 음표 기호 ========== */
+const NOTE_CHAR = { 1:'\u{1D15F}', 0.5:'\u{1D160}', 0.25:'\u{1D161}' }; // 4분/8분/16분음표
+const AUG_DOT = '\u{1D16D}'; // 붙임점(점음표) — 앞 음표 기호와 결합
+function noteUnicode(p){
+  const chars = p.s.map(([, dur]) => {
+    if(Math.abs(dur - 0.75) < 0.001) return NOTE_CHAR[0.5] + AUG_DOT; // 점8분음표
+    const key = [1, 0.5, 0.25].find(k => Math.abs(dur - k) < 0.001);
+    return NOTE_CHAR[key] || NOTE_CHAR[0.5]; // 셋잇단음표는 8분음표 기호 재사용
+  });
+  return chars.join(' ') + (p.trip ? '³' : '');
+}
+
 /* ========== 홈 ========== */
 const $ = id => document.getElementById(id);
 function show(v){ ['home','play','result'].forEach(x=>$(x).classList.toggle('active', x===v)); }
@@ -366,6 +379,7 @@ function renderHome(){
       <div class="glyph">${glyph(p)}</div>
       <div class="info">
         <div class="fname">${p.word}</div>
+        <div class="funicode">${noteUnicode(p)}</div>
         <div class="fdesc">${p.desc}</div>
         <div class="boxes">${p.s.map(s=>
           `<span style="flex-grow:${s[1]}">${s[0]}</span>`).join('')}</div>
