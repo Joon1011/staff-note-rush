@@ -102,16 +102,16 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 .beat{flex:1;display:flex;gap:2px;}
 .cell{
   flex-grow:var(--w);flex-basis:0;
-  border:3px solid var(--c);border-radius:6px;
+  border:4px solid var(--c);border-radius:8px;
   background:color-mix(in srgb,var(--c) 10%,#fff);
   font-family:'Gaegu',cursive;font-weight:700;
-  font-size:clamp(.85rem,3.4vw,1.1rem);color:var(--c);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  height:clamp(46px,9vh,64px);
+  font-size:clamp(1.5rem,7vw,2.5rem);color:var(--c);
+  display:flex;align-items:center;justify-content:center;
+  height:clamp(138px,27vh,192px);
+  line-height:1.15;text-align:center;padding:2px;
   transition:transform .08s,background .12s,box-shadow .12s;
 }
-.cell .cellNote{font-size:.85em;line-height:1;opacity:.85;}
-.cell .cellSyll{line-height:1;}
+.cell .cellNote{font-size:.7em;opacity:.85;}
 .cell.hit{background:var(--c);color:#fff;transform:scale(1.06);
   box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 25%,transparent);}
 .cell.ok{background:color-mix(in srgb,var(--c) 55%,#fff);color:#fff;}
@@ -125,15 +125,15 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   color:var(--dim);text-align:center;margin-top:6px;}
 
 .tapZone{
-  flex:1;min-height:110px;border:3px dashed var(--line);border-radius:16px;
+  flex:0 0 auto;min-height:52px;border:3px dashed var(--line);border-radius:14px;
   background:#fff;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:4px;cursor:pointer;
+  align-items:center;justify-content:center;gap:2px;cursor:pointer;
   transition:background .06s,border-color .06s;
 }
 .tapZone:active,.tapZone.flash{background:#FFF3E0;border-color:#FF8A3D;}
-.tapZone .big{font-size:clamp(1.3rem,6vw,1.9rem);}
+.tapZone .big{font-size:clamp(1rem,4.2vw,1.3rem);}
 .tapZone .small{font-family:'Gaegu',cursive;font-weight:700;
-  font-size:.95rem;color:var(--dim);}
+  font-size:.8rem;color:var(--dim);}
 .verdict{
   font-size:clamp(1.4rem,7vw,2rem);height:1.3em;
   display:flex;align-items:center;justify-content:center;
@@ -417,7 +417,7 @@ function renderMeasure(mi){
       const c=document.createElement('div');
       c.className='cell'; c.style.setProperty('--c',p.c);
       c.style.setProperty('--w', s[1]);
-      c.innerHTML = `<span class="cellNote">${noteCharFor(s[1])}</span><span class="cellSyll">${s[0]}</span>`;
+      c.innerHTML = `${s[0]} <span class="cellNote">(${noteCharFor(s[1])})</span>`;
       c.dataset.key = mi+'-'+bi+'-'+si;
       d.appendChild(c);
     });
