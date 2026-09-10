@@ -130,17 +130,39 @@
     color:var(--text-muted); pointer-events:none; white-space:nowrap;
   }
   .firework{
-    position:absolute; bottom:6%; width:4px; height:4px; border-radius:50%;
+    position:absolute; bottom:6%; width:5px; height:5px; border-radius:50%;
     background:var(--gold); transform:translateX(-50%);
-    animation:rocketRise .45s ease-out forwards; pointer-events:none;
+    box-shadow:0 0 8px 2px rgba(255,255,255,.65), 0 12px 16px -3px rgba(255,200,87,.5);
+    animation:rocketRise .4s cubic-bezier(.25,.6,.4,1) forwards; pointer-events:none;
   }
-  @keyframes rocketRise{ 0%{bottom:6%; opacity:1;} 100%{bottom:60%; opacity:0;} }
-  .spark{
-    position:absolute; top:40%; width:6px; height:6px; border-radius:50%;
+  @keyframes rocketRise{ 0%{bottom:6%; opacity:1;} 100%{bottom:var(--peak, 55%); opacity:1;} }
+  .flash{
+    position:absolute; width:12px; height:12px; border-radius:50%;
     transform:translate(-50%,-50%); pointer-events:none;
-    animation:sparkBurst .7s ease-out forwards;
+    background:radial-gradient(circle, #fff 0%, var(--flash-color, var(--gold)) 45%, transparent 75%);
+    animation:flashPop .3s ease-out forwards;
+  }
+  @keyframes flashPop{
+    0%{ transform:translate(-50%,-50%) scale(.3); opacity:1; }
+    100%{ transform:translate(-50%,-50%) scale(11); opacity:0; }
+  }
+  .spark{
+    position:absolute; border-radius:50%;
+    transform:translate(-50%,-50%); pointer-events:none;
+    box-shadow:0 0 4px 1px currentColor;
+    animation:sparkBurst .85s cubic-bezier(.15,.65,.35,1) forwards;
   }
   @keyframes sparkBurst{
+    0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+    55%{ transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.85); opacity:1; }
+    100%{ transform:translate(calc(-50% + var(--dx2)), calc(-50% + var(--dy2))) scale(.1); opacity:0; }
+  }
+  .crackle{
+    position:absolute; width:3px; height:3px; border-radius:50%;
+    background:#fff; transform:translate(-50%,-50%); pointer-events:none;
+    animation:crackleBurst .45s ease-out forwards;
+  }
+  @keyframes crackleBurst{
     0%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
     100%{ transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.2); opacity:0; }
   }
@@ -609,27 +631,66 @@
   }
 
   // ---------- 불꽃 연출 ----------
-  const SPARK_COLORS = ['#FFC857', '#FF6B6B', '#4ECDC4', '#F4EFFF'];
+  // 여러 색 조합 중 하나를 폭죽마다 무작위로 골라서(전부 같은 팔레트로
+  // 섞이지 않고) 매번 다른 느낌이 나게 한다. 흰색은 반짝임(스파클)용으로 항상 섞는다.
+  const SPARK_PALETTES = [
+    ['#FFC857', '#FF6B6B'],
+    ['#4ECDC4', '#F4EFFF'],
+    ['#FF6B6B', '#FFC857', '#4ECDC4'],
+    ['#4ECDC4', '#FFC857'],
+  ];
   function launchFirework(xPct){
     const rocket = document.createElement('div');
     rocket.className = 'firework';
+    const peakPct = 45 + Math.random() * 22; // 45~67% 높이에서 랜덤하게 터짐
     rocket.style.left = xPct + '%';
+    rocket.style.setProperty('--peak', peakPct + '%');
     arena.appendChild(rocket);
+
     setTimeout(() => {
       rocket.remove();
-      for(let i = 0; i < 10; i++){
-        const s = document.createElement('div');
-        s.className = 'spark';
-        const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
-        const dist = 34 + Math.random() * 26;
-        s.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
-        s.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-        s.style.left = xPct + '%';
-        s.style.background = SPARK_COLORS[i % SPARK_COLORS.length];
-        arena.appendChild(s);
-        setTimeout(() => s.remove(), 750);
+      burst(xPct, peakPct, false);
+      // 살짝 늦게 한 번 더, 더 작고 은은하게 — 잔불이 반짝이는 크래클 효과.
+      setTimeout(() => burst(xPct, peakPct, true), 180 + Math.random() * 80);
+    }, 400);
+  }
+
+  function burst(xPct, topPct, isCrackle){
+    const palette = SPARK_PALETTES[Math.floor(Math.random() * SPARK_PALETTES.length)];
+    if(!isCrackle){
+      const flash = document.createElement('div');
+      flash.className = 'flash';
+      flash.style.left = xPct + '%';
+      flash.style.top = topPct + '%';
+      flash.style.setProperty('--flash-color', palette[0]);
+      arena.appendChild(flash);
+      setTimeout(() => flash.remove(), 320);
+    }
+    const count = isCrackle ? 10 : 30;
+    for(let i = 0; i < count; i++){
+      const s = document.createElement('div');
+      s.className = isCrackle ? 'crackle' : 'spark';
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.35;
+      const dist = isCrackle ? (14 + Math.random() * 16) : (30 + Math.random() * 42);
+      const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist;
+      s.style.setProperty('--dx', dx + 'px');
+      s.style.setProperty('--dy', dy + 'px');
+      if(!isCrackle){
+        // 중력 — 끝에서는 옆으로는 덜 퍼지고(감속) 아래로는 더 떨어진다(낙하).
+        s.style.setProperty('--dx2', dx * 1.1 + 'px');
+        s.style.setProperty('--dy2', (dy + 22 + Math.random() * 28) + 'px');
+        const size = 4 + Math.random() * 5;
+        s.style.width = size + 'px';
+        s.style.height = size + 'px';
+        const color = Math.random() < 0.18 ? '#FFFFFF' : palette[i % palette.length];
+        s.style.background = color;
+        s.style.color = color; // box-shadow(currentColor)로 은은한 발광 처리
       }
-    }, 450);
+      s.style.left = xPct + '%';
+      s.style.top = topPct + '%';
+      arena.appendChild(s);
+      setTimeout(() => s.remove(), isCrackle ? 480 : 900);
+    }
   }
   function fizzle(xPct){
     const f = document.createElement('div');
