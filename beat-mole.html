@@ -577,7 +577,23 @@
   }
 
   // ---------- 게임 상태 ----------
-  let state, beatTimer = null, beatMs = 620;
+  let state, beatTimer = null, beatMs = 620, nextBeatAt = 0;
+
+  // setInterval(onBeat, beatMs)는 매 콜백이 "이전 콜백 실행이 끝난 시점"부터
+  // 다시 beatMs를 세기 때문에, DOM 조작 등으로 콜백 하나가 몇 ms만 늦게
+  // 끝나도 그 지연이 다음 박자로 그대로 누적된다 — 라운드가 길어질수록
+  // 점점 밀리는 "엇박" 느낌의 실제 원인. nextBeatAt에 절대 목표 시각을
+  // 잡아두고 setTimeout 지연을 매번 그 시각까지 남은 만큼만 주면, 콜백
+  // 하나가 늦게 끝나도 다음 박자가 그만큼 앞당겨 보정되어 드리프트가
+  // 쌓이지 않는다.
+  function scheduleBeat(){
+    const delay = Math.max(0, nextBeatAt - performance.now());
+    beatTimer = setTimeout(() => {
+      nextBeatAt += beatMs;
+      onBeat();
+      if(state.screen === 'playing') scheduleBeat();
+    }, delay);
+  }
 
   function updateBeatInfo(){
     const bpm = Math.round(60000 / beatMs);
@@ -594,7 +610,7 @@
     state = {
       screen:'start',
       score:0, combo:0, maxCombo:0,
-      lives:3, correct:0, misses:0,
+      lives:3, misses:0,
       stageIndex:0, totalBeats:STAGES[0].beats,
       beatIndex:-LEAD_IN_BEATS,
       moleHole:-1, moleResolved:true, lastHole:-1,
@@ -671,14 +687,13 @@
     if(state.lives <= 0){
       state.moleResolved = true;
       hideMole();
-      clearInterval(beatTimer);
+      clearTimeout(beatTimer);
       gameOver();
     }
   }
 
   function registerHit(holeEl){
     state.moleResolved = true;
-    state.correct++;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     state.score += 10 + Math.min(state.combo, 10) * 2;
@@ -704,7 +719,7 @@
     setTimeout(() => holeEl.classList.remove('hitMiss'), 250);
     renderHUD();
     if(state.lives <= 0){
-      clearInterval(beatTimer);
+      clearTimeout(beatTimer);
       gameOver();
     }
   }
@@ -719,7 +734,7 @@
 
     state.beatIndex++;
     if(state.beatIndex >= state.totalBeats){
-      clearInterval(beatTimer);
+      clearTimeout(beatTimer);
       victory();
       return;
     }
@@ -783,12 +798,13 @@
     holes.forEach(h => h.classList.remove('up','hitGood','hitMiss','shake'));
     renderHUD();
     updateBeatInfo();
-    clearInterval(beatTimer);
+    clearTimeout(beatTimer);
     // 첫 박자를 버튼을 누른 직후 바로 재생한다 — 다음 박자까지 조용히
     // 기다리게 하지 않고, 탭한 제스처와 최대한 가까이 붙여서 오디오가
     // 확실히 풀리게 한다.
     onBeat();
-    beatTimer = setInterval(onBeat, beatMs);
+    nextBeatAt = performance.now() + beatMs;
+    scheduleBeat();
   }
 
   function startGame(){
@@ -808,7 +824,7 @@
   });
 
   function backToMenu(){
-    clearInterval(beatTimer);
+    clearTimeout(beatTimer);
     state.screen = 'start';
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
@@ -824,9 +840,10 @@
   // 복구는 안 하지만, 캐주얼한 연습 게임이라 이 정도면 충분하다).
   document.addEventListener('visibilitychange', () => {
     if(document.hidden){
-      clearInterval(beatTimer);
+      clearTimeout(beatTimer);
     } else if(state.screen === 'playing'){
-      beatTimer = setInterval(onBeat, beatMs);
+      nextBeatAt = performance.now() + beatMs;
+      scheduleBeat();
     }
   });
 
