@@ -100,7 +100,9 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   overflow-x:hidden;
 }
 .measRow{display:flex;gap:5px;min-width:0;}
-.beat{flex:1;display:flex;gap:2px;min-width:0;}
+.beat{flex:1;display:flex;gap:2px;min-width:0;border-radius:10px;transition:box-shadow .08s;}
+/* 재생선이 지나가는 박 칸을 주황 테두리로 감싸서 "지금 이 박"이 한눈에 보인다 */
+.beat.now{box-shadow:0 0 0 3px #FF8A3D;}
 .cell{
   flex-grow:var(--w);flex-basis:0;min-width:0;
   border:4px solid var(--c);border-radius:8px;
@@ -114,12 +116,17 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 }
 .cell .cellNote{font-size:1.2em;opacity:1;}
 .cell.hit{background:var(--c);color:#fff;transform:scale(1.06);
-  box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 25%,transparent);}
-.cell.ok{background:color-mix(in srgb,var(--c) 55%,#fff);color:#fff;}
-.cell.miss{background:#EFEAE0;border-color:#C9C2B4;color:#B0A899;}
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 25%,transparent);
+  animation:cellPop .28s cubic-bezier(.2,1.4,.5,1);}
+.cell.ok{background:color-mix(in srgb,var(--c) 55%,#fff);color:#fff;animation:cellPop .22s ease-out;}
+@keyframes cellPop{0%{transform:scale(.92);}60%{transform:scale(1.12);}100%{transform:scale(1.06);}}
+/* 놓친 칸은 붉은 기운으로 — 예전 회색은 종이색과 거의 구분이 안 됐다 */
+.cell.miss{background:#FBE6E3;border-color:#E39A93;color:#B4453B;animation:cellShake .3s ease-out;}
+@keyframes cellShake{0%,100%{transform:translateX(0);}30%{transform:translateX(-4px);}60%{transform:translateX(4px);}}
 .playhead{
   position:absolute;top:6px;bottom:6px;width:3px;background:#FF3B30;
   border-radius:2px;left:0;opacity:0;pointer-events:none;
+  box-shadow:0 0 8px 2px rgba(255,59,48,.45);
 }
 .playhead.on{opacity:.85;}
 .mlabel{font-family:'Gaegu',cursive;font-weight:700;font-size:.8rem;
@@ -152,17 +159,28 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   background:#fff;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:4px;cursor:pointer;
   transition:background .06s,border-color .06s;
+  position:relative;overflow:hidden;
 }
 .tapZone:active,.tapZone.flash{background:#FFF3E0;border-color:#FF8A3D;}
 .tapZone .big{font-size:clamp(1.3rem,6vw,1.9rem);}
 .tapZone .small{font-family:'Gaegu',cursive;font-weight:700;
   font-size:.95rem;color:var(--dim);}
+/* 두드린 자리에서 물결이 퍼진다 — 어디를 눌렀는지, 눌렸는지가 바로 보인다 */
+.ripple{
+  position:absolute;width:24px;height:24px;border-radius:50%;
+  background:rgba(255,138,61,.35);transform:translate(-50%,-50%) scale(.4);
+  pointer-events:none;animation:rippleOut .45s ease-out forwards;
+}
+@keyframes rippleOut{to{transform:translate(-50%,-50%) scale(7);opacity:0;}}
+#comboLbl.bump{animation:comboBump .28s ease-out;display:inline-block;}
+@keyframes comboBump{0%{transform:scale(1);}40%{transform:scale(1.3);}100%{transform:scale(1);}}
 .verdict{
   font-size:clamp(1.4rem,7vw,2rem);height:1.3em;
   display:flex;align-items:center;justify-content:center;
   transition:opacity .18s;opacity:0;flex-shrink:0;margin:6px 0;
 }
-.verdict.show{opacity:1;}
+.verdict.show{opacity:1;animation:verdictPop .25s cubic-bezier(.2,1.4,.5,1);}
+@keyframes verdictPop{0%{transform:scale(.7);}100%{transform:scale(1);}}
 .v-perfect{color:#12A150;} .v-good{color:#F5A623;} .v-miss{color:#C0392B;}
 
 .countdown{
@@ -171,14 +189,33 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   font-size:5rem;color:#FF8A3D;z-index:20;
 }
 .countdown.hidden{display:none;}
+.countdown.pop{animation:cdPop .35s ease-out;}
+@keyframes cdPop{0%{transform:scale(1.5);opacity:.4;}100%{transform:scale(1);opacity:1;}}
 
 /* ---- 결과 ---- */
-.res{text-align:center;margin:auto;padding:20px;}
+.res{text-align:center;margin:auto;padding:20px;position:relative;z-index:1;}
 .score{font-size:3rem;color:#FF8A3D;line-height:1.1;}
 .tally{display:flex;justify-content:center;gap:16px;margin:14px 0;
   font-family:'Gaegu',cursive;font-weight:700;font-size:1.05rem;}
 .tally b{display:block;font-family:'Jua',sans-serif;font-size:1.5rem;}
 .stars{font-size:2.2rem;letter-spacing:5px;color:#F5A623;}
+.stars span{display:inline-block;animation:starIn .5s cubic-bezier(.2,1.5,.5,1) both;}
+.stars span.dim{color:#DAD4C4;}
+@keyframes starIn{0%{transform:scale(0) rotate(-40deg);opacity:0;}100%{transform:scale(1) rotate(0);opacity:1;}}
+#result{position:relative;}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.confetti i{
+  position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;
+  animation:confFall var(--dur) linear var(--delay) forwards;opacity:0;
+}
+@keyframes confFall{
+  0%{transform:translateY(0) rotate(0);opacity:1;}
+  100%{transform:translateY(110vh) rotate(var(--rot));opacity:.9;}
+}
+@media (prefers-reduced-motion: reduce){
+  .confetti i{display:none;}
+  .cell.hit,.cell.ok,.cell.miss,.verdict.show,.countdown.pop{animation:none;}
+}
 </style>
 </head>
 <body>
@@ -226,6 +263,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 
   <!-- 결과 -->
   <div class="view col" id="result">
+    <div class="confetti" id="confetti"></div>
     <div class="res">
       <div class="stars" id="stars">☆☆☆</div>
       <div class="score" id="scorePct">0%</div>
@@ -313,6 +351,16 @@ function tapSound(){
   const g=ac.createGain();
   g.gain.setValueAtTime(.22,t); g.gain.exponentialRampToValueAtTime(.0001,t+.07);
   s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t+.08);
+}
+// "딱 맞았어!"에만 아주 짧고 높은 종소리를 얹어서 귀로도 정확도가 구분된다.
+function ding(){
+  if(!ac) return; const t=ac.currentTime;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type='sine'; o.frequency.value=1568;
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(.14,t+.005);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.2);
 }
 function chime(){
   if(!ac) return; const t=ac.currentTime;
@@ -422,7 +470,7 @@ function renderHome(){
 /* ========== 게임 ========== */
 const MEASURES = 4;
 let seq=[], onsets=[], startT=0, running=false, raf=null;
-let idxPerfect=0, idxGood=0, idxMiss=0, combo=0, maxCombo=0, curMeasure=-1;
+let idxPerfect=0, idxGood=0, idxMiss=0, combo=0, maxCombo=0, curMeasure=-1, curBeatCol=-1;
 let beatDur=.8, measDur=3.2;
 
 function buildSequence(){
@@ -484,7 +532,7 @@ function startGame(pid){
   practiceId = pid || null;
   beatDur = 60/TEMPOS[tempo].bpm;
   measDur = beatDur*4;
-  idxPerfect=idxGood=idxMiss=0; combo=0; maxCombo=0; curMeasure=-1;
+  idxPerfect=idxGood=idxMiss=0; combo=0; maxCombo=0; curMeasure=-1; curBeatCol=-1;
   buildSequence(); buildOnsets();
   renderMeasure(0); curMeasure=0;
   $('comboLbl').textContent='연속 0';
@@ -498,11 +546,15 @@ function countIn(){
   const t0 = ac ? ac.currentTime+.25 : 0;
   for(let i=0;i<4;i++) click(t0+i*beatDur, i===0);
   let n=4;
-  cd.textContent=n;
+  const showNum = v => {
+    cd.textContent=v;
+    cd.classList.remove('pop'); void cd.offsetWidth; cd.classList.add('pop'); // 숫자마다 통통 튀게
+  };
+  showNum(n);
   const iv=setInterval(()=>{
     n--;
     if(n<=0){ clearInterval(iv); cd.classList.add('hidden'); begin(t0+4*beatDur); }
-    else cd.textContent=n;
+    else showNum(n);
   }, beatDur*1000);
 }
 
@@ -525,9 +577,15 @@ function tick(){
   const total = MEASURES*measDur;
 
   const mi = Math.min(MEASURES-1, Math.floor(now/measDur));
-  if(mi !== curMeasure && mi >= 0){ curMeasure = mi; renderMeasure(mi); }
+  if(mi !== curMeasure && mi >= 0){ curMeasure = mi; renderMeasure(mi); curBeatCol=-1; }
 
   const inMeas = (now - curMeasure*measDur) / measDur;
+  // 지금 재생선이 지나는 박(4칸 중 하나)을 강조
+  const beatCol = Math.max(0, Math.min(3, Math.floor(inMeas*4)));
+  if(beatCol !== curBeatCol){
+    curBeatCol = beatCol;
+    [...$('measRow').children].forEach((b,i)=>b.classList.toggle('now', i===beatCol));
+  }
   const track = $('measRow').getBoundingClientRect();
   const box = $('playhead').parentElement.getBoundingClientRect();
   $('playhead').style.left =
@@ -552,12 +610,24 @@ function markCell(key, cls){
   if(c) c.classList.add(cls);
 }
 
-function onTap(){
+function ripple(x, y){
+  const z=$('tapZone');
+  const r=document.createElement('div'); r.className='ripple';
+  const box=z.getBoundingClientRect();
+  r.style.left=((x==null? box.width/2 : x-box.left))+'px';
+  r.style.top=((y==null? box.height/2 : y-box.top))+'px';
+  z.appendChild(r); setTimeout(()=>r.remove(), 480);
+}
+function bumpCombo(){
+  const c=$('comboLbl'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+}
+function onTap(x, y){
   if(!running) return;
   tapSound();
   if(navigator.vibrate) navigator.vibrate(15); // 탭이 실제로 씹혔는지 헷갈린다는 피드백 — 매 탭마다 촉각 반응을 준다
   const z=$('tapZone'); z.classList.add('flash');
   setTimeout(()=>z.classList.remove('flash'),70);
+  ripple(x, y);
 
   const now = ac.currentTime - startT;
   let best=null, bd=Infinity;
@@ -569,10 +639,11 @@ function onTap(){
   if(!best || bd>.26){ showVerdict('빗나갔어','v-miss'); combo=0; $('comboLbl').textContent='연속 0'; return; }
 
   best.judged=true;
-  if(bd<=.09){ idxPerfect++; combo++; showVerdict('딱 맞았어!','v-perfect'); markCell(best.key,'hit'); }
+  if(bd<=.09){ idxPerfect++; combo++; showVerdict('딱 맞았어!','v-perfect'); markCell(best.key,'hit'); ding(); }
   else       { idxGood++;    combo++; showVerdict('거의 맞았어','v-good');  markCell(best.key,'ok'); }
   maxCombo=Math.max(maxCombo,combo);
   $('comboLbl').textContent='연속 '+combo;
+  bumpCombo();
 }
 let vTimer=null;
 function showVerdict(text, cls){
@@ -583,8 +654,8 @@ function showVerdict(text, cls){
 }
 
 const tz=$('tapZone');
-tz.addEventListener('touchstart', e=>{ e.preventDefault(); onTap(); }, {passive:false});
-tz.addEventListener('mousedown', e=>{ if(e.button===0 && !('ontouchstart' in window)) onTap(); });
+tz.addEventListener('touchstart', e=>{ e.preventDefault(); const t=e.touches[0]; onTap(t&&t.clientX, t&&t.clientY); }, {passive:false});
+tz.addEventListener('mousedown', e=>{ if(e.button===0 && !('ontouchstart' in window)) onTap(e.clientX, e.clientY); });
 window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); onTap(); } });
 
 function stop(){
@@ -597,7 +668,24 @@ function finish(){
   const total = onsets.length;
   const pct = Math.round((idxPerfect + idxGood*0.5) / total * 100);
   const stars = pct>=90?3 : pct>=70?2 : pct>=45?1 : 0;
-  $('stars').textContent = '★'.repeat(stars)+'☆'.repeat(3-stars);
+  // 별이 하나씩 통통 튀며 켜진다
+  $('stars').innerHTML = [0,1,2].map(i =>
+    `<span class="${i<stars?'':'dim'}" style="animation-delay:${.15+i*.18}s">${i<stars?'★':'☆'}</span>`).join('');
+  // 3개 별이면 색종이
+  const cf = $('confetti'); cf.innerHTML='';
+  if(stars===3 && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+    const colors=['#FF8A3D','#F5A623','#12A150','#E88B92','#7CB342','#4ECDC4'];
+    for(let i=0;i<36;i++){
+      const s=document.createElement('i');
+      s.style.left=(Math.random()*100)+'%';
+      s.style.background=colors[i%colors.length];
+      s.style.setProperty('--dur',(2.2+Math.random()*1.6)+'s');
+      s.style.setProperty('--delay',(Math.random()*1.2)+'s');
+      s.style.setProperty('--rot',(360+Math.random()*720)+'deg');
+      cf.appendChild(s);
+    }
+    setTimeout(()=>{ cf.innerHTML=''; }, 5500);
+  }
   $('scorePct').textContent = pct+'%';
   $('tPerfect').textContent = idxPerfect;
   $('tGood').textContent = idxGood;

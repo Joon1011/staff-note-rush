@@ -77,10 +77,31 @@
     flex-shrink:0;
   }
   .lives{display:flex; gap:3px; font-size:1.15em;}
-  .heart{transition:opacity .25s, transform .25s;}
+  .heart{transition:opacity .25s, transform .25s; display:inline-block;}
   .heart.off{opacity:.16; transform:scale(.8);}
-  .combo{color:var(--coral); font-weight:700;}
+  .heart.lost{ animation:heartShake .5s ease-out; }
+  @keyframes heartShake{
+    0%{ transform:scale(1.4) rotate(0); opacity:1; }
+    25%{ transform:scale(1.3) rotate(-14deg); }
+    50%{ transform:scale(1.2) rotate(12deg); }
+    75%{ transform:scale(1) rotate(-6deg); }
+    100%{ transform:scale(.8) rotate(0); opacity:.16; }
+  }
+  .combo{color:var(--coral); font-weight:700; display:inline-block;}
+  .combo.bump{ animation:comboBump .28s ease-out; }
+  @keyframes comboBump{ 0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1);} }
   .score{color:var(--teal);}
+
+  /* 노래 진행 바 — 지금 몇 번째 음인지 숫자보다 한눈에 보인다 */
+  .progressBar{
+    height:5px; border-radius:3px; background:#150e29; border:1px solid #40315f;
+    overflow:hidden; flex-shrink:0;
+  }
+  .progressFill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--teal), var(--gold));
+    transition:width .15s linear;
+  }
 
   .canvasWrap{
     position:relative;
@@ -88,9 +109,12 @@
     min-height:130px;
     border-radius:12px;
     overflow:hidden;
-    background:#150e29;
+    background:linear-gradient(180deg, #120b26 0%, #150e29 40%, #1b1236 100%);
     border:1px solid #40315f;
+    transition:box-shadow .3s;
   }
+  .canvasWrap.missFlash{ box-shadow:inset 0 0 40px 8px rgba(255,107,107,.5); transition:none; }
+  .canvasWrap.goodFlash{ box-shadow:inset 0 0 30px 4px rgba(255,200,87,.25); transition:none; }
   canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
 
   .toast{
@@ -134,6 +158,9 @@
   .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
   .noteBtn.correctFlash{background:var(--gold);}
   .noteBtn.wrongFlash{background:var(--coral); color:#3a0f0f;}
+  /* 틀리거나 놓쳤을 때 정답 버튼이 잠깐 금색 테두리로 깜빡여서 "이게 정답이었어"를 알려준다 */
+  .noteBtn.hintFlash{ box-shadow:0 0 0 4px var(--gold), 0 0 16px rgba(255,200,87,.7); animation:hintBlink .6s ease-in-out; }
+  @keyframes hintBlink{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
 
   .overlay{
     position:absolute; inset:0; z-index:10;
@@ -234,6 +261,7 @@
     <div class="combo" id="comboLabel">콤보 0</div>
     <div class="score" id="scoreLabel">점수 0</div>
   </div>
+  <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
 
   <div class="canvasWrap" id="canvasWrap">
     <canvas id="game"></canvas>
@@ -467,8 +495,11 @@
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const lineGap    = H * 0.115;              // 오선 줄 간격
-    const bottomLine = H * 0.70;               // 맨 아래 줄(E4)
+    // 오선 줄 간격 — 높이 기준만 쓰면 세로로 긴 폰 화면에서 줄 간격과 높은음자리표가
+    // 화면을 다 덮을 만큼 커진다. 가로폭 기준 상한을 같이 둬서 폰에서도 악보답게 보이게.
+    const lineGap    = Math.min(H * 0.115, W * 0.075);
+    // 맨 아래 줄(E4) — 오선(+아래 덧줄 여유)이 캔버스 세로 중앙에 오도록
+    const bottomLine = H * 0.5 + lineGap * 2.2;
     geo = {
       lineGap,
       bottomLine,
@@ -500,16 +531,27 @@
     // resume이 늦게 끝나도 그 소리가 통째로 씹히지 않게 한다.
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   }
+  // 삼각파 하나만 울리면 얇고 전자음 같아서, 한 옥타브 위 사인파를 작게 얹고
+  // 어택을 살짝 부드럽게 해 실로폰/피아노 느낌에 가깝게 만든다. 음높이·길이는 그대로.
   function tone(freq, dur=0.4){
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    const out = audioCtx.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(0.32, t0 + 0.015);
+    out.gain.exponentialRampToValueAtTime(0.12, t0 + Math.min(0.12, dur * 0.4));
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    out.connect(audioCtx.destination);
+    const o = audioCtx.createOscillator();
     o.type = 'triangle'; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(audioCtx.destination);
+    o.connect(out);
+    const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+    o2.type = 'sine'; o2.frequency.value = freq * 2;
+    g2.gain.setValueAtTime(0.35, t0);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.6);
+    o2.connect(g2).connect(out);
     o.start(t0); o.stop(t0 + dur + 0.05);
+    o2.start(t0); o2.stop(t0 + dur + 0.05);
   }
   function buzz(){
     if(navigator.vibrate) navigator.vibrate(60);
@@ -550,16 +592,22 @@
     b.innerHTML = `${n.name}<small>${n.sub}</small>`;
     b.setAttribute('aria-label', `${n.name} 음`);
 
-    let handled = false;
-    const fire = e => {
+    // 터치 뒤에 브라우저가 흉내 내는 mousedown(고스트 클릭)만 걸러낸다.
+    // 예전엔 마우스 클릭도 이 가드를 켜버려서, 같은 음이 연달아 나오는 구간
+    // (곰 세 마리 첫 "도도도도도")에서 데스크톱 사용자가 350ms 안에 같은
+    // 버튼을 다시 누르면 두 번째 입력이 통째로 무시됐다.
+    let touchGuard = false;
+    const press = e => {
       e.preventDefault();
-      handled = true;
       b.classList.add('pressed');
       answer(i, b);
-      setTimeout(() => { handled = false; }, 350);
     };
-    b.addEventListener('touchstart', fire, {passive:false});
-    b.addEventListener('mousedown', e => { if(!handled) fire(e); });
+    b.addEventListener('touchstart', e => {
+      touchGuard = true;
+      press(e);
+      setTimeout(() => { touchGuard = false; }, 350);
+    }, {passive:false});
+    b.addEventListener('mousedown', e => { if(!touchGuard) press(e); });
     b.addEventListener('click', e => e.preventDefault());
     const release = () => b.classList.remove('pressed');
     ['touchend','touchcancel','mouseup','mouseleave'].forEach(ev =>
@@ -632,19 +680,82 @@
   }
   resetState();
 
-  function renderHUD(){
+  // lostIndex: 방금 잃은 하트 자리 — 그 하트만 흔들리며 꺼진다.
+  function renderHUD(lostIndex = -1){
     livesEl.innerHTML = '';
     for(let i = 0; i < 3; i++){
       const s = document.createElement('span');
-      s.className = 'heart' + (i < state.lives ? '' : ' off');
+      s.className = 'heart' + (i < state.lives ? '' : ' off') + (i === lostIndex ? ' lost' : '');
       s.textContent = '♥';
       livesEl.appendChild(s);
     }
     comboEl.textContent = `콤보 ${state.combo}`;
     scoreEl.textContent = `점수 ${state.score}`;
+    renderProgress();
+  }
+  // "N/전체" 표시와 진행 바 — 예전엔 renderHUD가 songPos를 올리기 전에 불려서
+  // 항상 한 음 늦게 보였다. 음이 넘어가는 advanceSong에서 따로 갱신한다.
+  function renderProgress(){
+    const len = state.song.sequence.length;
     if(state.screen === 'playing'){
-      subEl.textContent = `${state.song.title} · ${state.songPos}/${state.song.sequence.length}`;
+      subEl.textContent = `${state.song.title} · ${state.songPos}/${len}`;
     }
+    el('progressFill').style.width = len ? (state.songPos / len * 100) + '%' : '0%';
+  }
+  function bumpCombo(){
+    comboEl.classList.remove('bump');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('bump');
+  }
+  let wrapFlashTimer = null;
+  function flashWrap(cls){
+    wrap.classList.remove('missFlash', 'goodFlash');
+    void wrap.offsetWidth;
+    wrap.classList.add(cls);
+    clearTimeout(wrapFlashTimer);
+    wrapFlashTimer = setTimeout(() => wrap.classList.remove(cls), 60);
+  }
+
+  // ---------- 캔버스 파티클/떠오르는 글자 ----------
+  // 정답을 맞힌 자리에서 금색 반짝임이 터지고 "+점수"와 계이름이 떠오른다.
+  const particles = [];
+  const floaters = [];
+  function burstAt(x, y, color){
+    const n = 14;
+    for(let i = 0; i < n; i++){
+      const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+      const sp = 90 + Math.random() * 120;
+      particles.push({ x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - 40, life:0.55, max:0.55, r:2 + Math.random() * 2.5, color });
+    }
+  }
+  function floatText(x, y, text, color, size){
+    floaters.push({ x, y, text, color, size, life:0.8, max:0.8 });
+  }
+  function drawEffects(dt){
+    for(let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      p.life -= dt;
+      if(p.life <= 0){ particles.splice(i, 1); continue; }
+      p.vy += 260 * dt; // 중력
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    for(let i = floaters.length - 1; i >= 0; i--){
+      const f = floaters[i];
+      f.life -= dt;
+      if(f.life <= 0){ floaters.splice(i, 1); continue; }
+      f.y -= 45 * dt;
+      const k = f.life / f.max;
+      ctx.globalAlpha = Math.min(1, k * 1.6);
+      ctx.fillStyle = f.color;
+      ctx.font = `800 ${f.size}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'start';
   }
 
   let toastTimer = null;
@@ -665,6 +776,7 @@
   // 안 되니, 다음 음으로 넘어가고 그게 노래의 끝이면 클리어 처리한다.
   function advanceSong(delay){
     state.songPos++;
+    renderProgress();
     if(state.songPos >= state.song.sequence.length) setTimeout(victory, delay);
     else setTimeout(spawnNote, delay);
   }
@@ -674,34 +786,44 @@
     const n = state.current;
     if(idx === n.idx){
       n.resolved = true;
+      n.flashFrames = 12; n.flashType = 'correct';
       state.correct++;
       state.combo++;
       state.maxCombo = Math.max(state.maxCombo, state.combo);
-      state.score += 10 + Math.min(state.combo, 10) * 2;
+      const gained = 10 + Math.min(state.combo, 10) * 2;
+      state.score += gained;
       tone(NOTES[idx].freq);
+      if(navigator.vibrate) navigator.vibrate(12);
       flashBtn(btn, 'correctFlash');
+      flashWrap('goodFlash');
+      const ny = yOf(NOTES[idx].step);
+      burstAt(n.x, ny, '#FFC857');
+      floatText(n.x, ny - geo.lineGap * 2.2, `+${gained}`, '#FFC857', Math.min(26, Math.max(13, geo.lineGap * 0.9)));
       if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
       maybeLevelUp();
       renderHUD();
+      bumpCombo();
       advanceSong(90);
     } else {
       n.resolved = true;
-      n.flashFrames = 20; n.flashType = 'wrong';
+      n.flashFrames = 30; n.flashType = 'wrong';
       state.combo = 0; state.lives--; state.misses++;
       buzz();
+      flashWrap('missFlash');
       // 틀려도 원래 음은 들려준다 — 멜로디 흐름이 안 끊겨야 "노래를 치고
       // 있다"는 느낌이 유지되고, 정답 음이 뭐였는지 귀로도 익힐 수 있다.
       setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
       flashBtn(btn, 'wrongFlash');
-      renderHUD();
+      flashBtn(buttons[n.idx], 'hintFlash', 600); // 정답 버튼을 알려준다
+      renderHUD(state.lives);
       if(state.lives <= 0) setTimeout(gameOver, 300);
       else advanceSong(550);
     }
   }
-  function flashBtn(btn, cls){
+  function flashBtn(btn, cls, ms = 220){
     if(!btn) return;
     btn.classList.add(cls);
-    setTimeout(() => btn.classList.remove(cls), 220);
+    setTimeout(() => btn.classList.remove(cls), ms);
   }
 
   function maybeLevelUp(){
@@ -716,10 +838,13 @@
     const n = state.current;
     if(!n || n.resolved) return;
     n.resolved = true;
+    n.flashFrames = 26; n.flashType = 'wrong';
     state.combo = 0; state.lives--; state.misses++;
     buzz();
+    flashWrap('missFlash');
     setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
-    renderHUD();
+    flashBtn(buttons[n.idx], 'hintFlash', 600); // 놓친 음의 정답 버튼을 알려준다
+    renderHUD(state.lives);
     if(state.lives <= 0) setTimeout(gameOver, 250);
     else advanceSong(450);
   }
@@ -757,6 +882,7 @@
     winOverlay.classList.add('hidden');
     rankOverlay.classList.add('hidden');
     renderHUD();
+    particles.length = 0; floaters.length = 0;
     spawnNote();
     lastTime = performance.now();
     requestAnimationFrame(loop);
@@ -803,13 +929,22 @@
     ctx.textBaseline = 'alphabetic';
     ctx.fillText('𝄞', W * 0.015, geo.bottomLine + geo.lineGap * 0.55);
 
+    // 판정선 — 선 뒤에 은은한 청록 빛을 깔아서 "여기 닿기 전에"가 더 잘 보인다
     ctx.save();
-    ctx.strokeStyle = 'rgba(78,205,196,.6)';
+    const top = geo.bottomLine - geo.lineGap * 5.4, bottom = geo.bottomLine + geo.lineGap * 1.6;
+    const glowW = Math.max(18, geo.lineGap * 1.4);
+    const grad = ctx.createLinearGradient(geo.judgeX - glowW, 0, geo.judgeX + glowW, 0);
+    grad.addColorStop(0, 'rgba(78,205,196,0)');
+    grad.addColorStop(0.5, 'rgba(78,205,196,.16)');
+    grad.addColorStop(1, 'rgba(78,205,196,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(geo.judgeX - glowW, top, glowW * 2, bottom - top);
+    ctx.strokeStyle = 'rgba(78,205,196,.75)';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
-    ctx.moveTo(geo.judgeX, geo.bottomLine - geo.lineGap * 5.4);
-    ctx.lineTo(geo.judgeX, geo.bottomLine + geo.lineGap * 1.6);
+    ctx.moveTo(geo.judgeX, top);
+    ctx.lineTo(geo.judgeX, bottom);
     ctx.stroke();
     ctx.restore();
   }
@@ -818,7 +953,16 @@
     const def = NOTES[n.idx];
     const y = yOf(def.step);
     let color = '#FFC857';
-    if(n.flashType === 'wrong' && n.flashFrames > 0){ color = '#FF6B6B'; n.flashFrames--; }
+    let label = null;
+    if(n.flashType === 'wrong' && n.flashFrames > 0){
+      color = '#FF6B6B'; n.flashFrames--;
+      label = def.name; // 틀린/놓친 음의 계이름을 음표 위에 보여줘서 눈으로 익힌다
+    } else if(n.flashType === 'correct' && n.flashFrames > 0){
+      color = '#FFFFFF'; n.flashFrames--;
+    }
+    // 판정선에 가까워질수록 음표 주변 빛이 커져서 "곧 닿는다"는 긴장감을 준다
+    const range = Math.max(1, geo.spawnX - geo.judgeX);
+    const prox = Math.max(0, Math.min(1, 1 - (n.x - geo.judgeX) / range));
 
     if(def.ledger){
       ctx.strokeStyle = '#EDE6FF';
@@ -837,12 +981,24 @@
 
     ctx.fillStyle = color;
     ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4 + prox * 16;
     ctx.translate(n.x, y);
     ctx.rotate(-0.35);
     ctx.beginPath();
     ctx.ellipse(0, 0, geo.noteRx, geo.noteRy, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+
+    if(label){
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = `800 ${Math.min(26, Math.max(13, geo.lineGap * 0.9))}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const ly = def.step <= 2 ? y - geo.stem - geo.lineGap * 0.7 : y - geo.lineGap * 1.1;
+      ctx.fillText(label, n.x, ly);
+      ctx.restore();
+    }
   }
 
   let lastTime = 0;
@@ -864,6 +1020,7 @@
       }
       drawNote(n);
     }
+    drawEffects(dt);
     requestAnimationFrame(loop);
   }
 

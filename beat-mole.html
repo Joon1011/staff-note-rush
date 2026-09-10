@@ -76,9 +76,19 @@
     flex-shrink:0;
   }
   .lives{display:flex; gap:3px; font-size:1.15em;}
-  .heart{transition:opacity .25s, transform .25s;}
+  .heart{transition:opacity .25s, transform .25s; display:inline-block;}
   .heart.off{opacity:.16; transform:scale(.8);}
-  .combo{color:var(--coral); font-weight:700;}
+  .heart.lost{ animation:heartShake .5s ease-out; }
+  @keyframes heartShake{
+    0%{ transform:scale(1.4) rotate(0); opacity:1; }
+    25%{ transform:scale(1.3) rotate(-14deg); }
+    50%{ transform:scale(1.2) rotate(12deg); }
+    75%{ transform:scale(1) rotate(-6deg); }
+    100%{ transform:scale(.8) rotate(0); opacity:.16; }
+  }
+  .combo{color:var(--coral); font-weight:700; display:inline-block;}
+  .combo.bump{ animation:comboBump .28s ease-out; }
+  @keyframes comboBump{ 0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1);} }
   .score{color:var(--teal);}
 
   .beatBar{display:flex; justify-content:center; align-items:center; gap:8px; flex-shrink:0;}
@@ -88,9 +98,20 @@
   }
   .beatDot{
     width:12px; height:12px; border-radius:50%;
-    background:var(--teal); transition:transform .09s ease-out, background .09s ease-out;
+    background:var(--teal); transition:transform .09s ease-out, background .09s ease-out, box-shadow .09s ease-out;
   }
-  .beatDot.pulse{ transform:scale(1.7); background:var(--gold); }
+  /* 4박마다 오는 첫 박(리프의 강박)은 더 크게·금색 — 마디 감각이 눈으로도 잡힌다 */
+  .beatDot.pulse{ transform:scale(1.4); background:#7fe3dc; }
+  .beatDot.pulse.strong{ transform:scale(1.9); background:var(--gold); box-shadow:0 0 12px 3px rgba(255,200,87,.5); }
+  .progressBar{
+    height:5px; border-radius:3px; background:#150e29; border:1px solid #40315f;
+    overflow:hidden; flex-shrink:0;
+  }
+  .progressFill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--teal), var(--gold));
+    transition:width .12s linear;
+  }
 
   .arena{
     position:relative; flex:1 1 auto; min-height:160px;
@@ -102,22 +123,96 @@
   }
   .hole{
     position:relative;
-    background:#150e29; border:2px solid #40315f; border-radius:18px;
+    background:radial-gradient(ellipse at 50% 100%, #1c1238 0%, #150e29 60%);
+    border:2px solid #40315f; border-radius:18px;
     overflow:hidden; cursor:pointer; touch-action:manipulation;
     display:flex; align-items:flex-end; justify-content:center;
+    transition:border-color .12s, box-shadow .12s;
   }
+  /* 두더지가 올라와 있는 구멍은 테두리가 살짝 밝아져서 어디를 봐야 할지 더 빨리 잡힌다 */
+  .hole.up{ border-color:#6b56b3; box-shadow:0 0 0 1px rgba(255,200,87,.15), inset 0 0 22px rgba(255,200,87,.08); }
   .hole .dirt{
     position:absolute; bottom:0; left:8%; right:8%; height:26%;
-    background:#2c2154; border-radius:50% 50% 0 0 / 100% 100% 0 0;
+    background:linear-gradient(180deg, #3a2b6b 0%, #2c2154 55%);
+    border-radius:50% 50% 0 0 / 100% 100% 0 0;
+    box-shadow:0 -3px 8px rgba(0,0,0,.35);
   }
+  .hole .dirt::before{
+    content:''; position:absolute; left:14%; right:14%; top:-7%; height:24%;
+    background:#0d0820; border-radius:50%; opacity:.9;
+  }
+  /* 두더지가 올라와 있는 동안 남은 시간이 줄어드는 막대 — 언제까지 때려야 하는지 보인다 */
+  .hole .timerBar{
+    position:absolute; left:10%; right:10%; bottom:6px; height:5px;
+    border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden; opacity:0;
+    transition:opacity .1s;
+  }
+  .hole .timerBar::after{
+    content:''; position:absolute; inset:0; transform-origin:left center;
+    background:linear-gradient(90deg, var(--gold), var(--coral));
+    transform:scaleX(0);
+  }
+  .hole.up .timerBar{ opacity:1; }
+  .hole.up .timerBar::after{ animation:timerDrain var(--beat-ms, 620ms) linear forwards; }
+  @keyframes timerDrain{ from{ transform:scaleX(1); } to{ transform:scaleX(0); } }
   .mole{
     position:absolute; bottom:-70%; left:50%; transform:translateX(-50%);
     font-size:clamp(2.1rem, 11vw, 3.4rem); line-height:1;
     transition:bottom .12s cubic-bezier(.34,1.4,.64,1);
     filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));
   }
-  .hole.up .mole{ bottom:14%; }
+  .hole.up .mole{ bottom:14%; animation:moleWiggle .6s ease-in-out .12s infinite alternate; }
+  @keyframes moleWiggle{ from{ transform:translateX(-50%) rotate(-6deg); } to{ transform:translateX(-50%) rotate(6deg); } }
   .hole.hitGood{ background:rgba(255,200,87,.14); border-color:var(--gold); }
+  .hole.hitGood .timerBar{ opacity:0; }
+  .starFx{
+    position:absolute; left:50%; top:45%; pointer-events:none;
+    font-size:clamp(.9rem, 4vw, 1.3rem); line-height:1;
+    transform:translate(-50%,-50%);
+    animation:starFly .55s ease-out forwards;
+  }
+  @keyframes starFly{
+    0%{ transform:translate(-50%,-50%) scale(.4); opacity:1; }
+    100%{ transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(var(--rot)); opacity:0; }
+  }
+  .scorePop{
+    position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); pointer-events:none;
+    font-family:'Baloo 2', sans-serif; font-weight:800; color:var(--gold);
+    font-size:clamp(.95rem, 4vw, 1.3rem); text-shadow:0 2px 6px rgba(0,0,0,.6);
+    animation:scoreRise .8s ease-out forwards; z-index:2;
+  }
+  @keyframes scoreRise{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+    20%{ opacity:1; transform:translate(-50%,-70%) scale(1.15); }
+    100%{ opacity:0; transform:translate(-50%,-170%) scale(1); }
+  }
+  .missVignette{
+    position:absolute; inset:-2px; pointer-events:none; z-index:3; border-radius:18px;
+    box-shadow:inset 0 0 40px 10px rgba(255,107,107,.55);
+    opacity:0; transition:opacity .4s ease-out;
+  }
+  .missVignette.show{ opacity:1; transition:none; }
+  .countdown{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2', sans-serif; font-weight:800; color:var(--gold);
+    font-size:clamp(2.6rem, 16vw, 5rem);
+    text-shadow:0 4px 14px rgba(0,0,0,.6);
+    pointer-events:none; opacity:0; transform:scale(.6);
+    transition:opacity .12s ease-out, transform .12s ease-out; z-index:4;
+  }
+  .countdown.show{ opacity:1; transform:scale(1); }
+  .countdown.go{ color:var(--teal); font-size:clamp(2rem, 11vw, 3.4rem); }
+  .stageDots{ display:flex; gap:8px; align-items:center; }
+  .stageDot{
+    width:11px; height:11px; border-radius:50%; background:#4a3a80;
+    border:2px solid #4a3a80;
+  }
+  .stageDot.done{ background:var(--teal); border-color:var(--teal); }
+  .stageDot.cur{ background:var(--gold); border-color:var(--gold); box-shadow:0 0 8px rgba(255,200,87,.6); }
+  @media (prefers-reduced-motion: reduce){
+    .hole.up .mole{ animation:none; }
+    .starFx{ animation-duration:.25s; }
+  }
   .hole.hitGood .mole{ animation:caughtPop .24s ease-out forwards; }
   @keyframes caughtPop{
     0%{ transform:translateX(-50%) scale(1) rotate(0); }
@@ -255,10 +350,13 @@
     <div class="beatDot" id="beatDot"></div>
     <div class="beatInfo" id="beatInfo">BPM – · 스테이지 –</div>
   </div>
+  <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
 
   <div class="arena" id="arena">
     <div class="moleGrid" id="moleGrid"></div>
+    <div class="missVignette" id="missVignette"></div>
     <div class="toast" id="toast"></div>
+    <div class="countdown" id="countdownEl"></div>
   </div>
 
   <div class="overlay" id="startOverlay">
@@ -280,6 +378,7 @@
 
   <div class="overlay hidden" id="overOverlay">
     <h2>다시 도전해볼까?</h2>
+    <div class="stageDots" id="stageDotsOver"></div>
     <p id="overText"></p>
     <div class="rankEntry" id="rankEntryOver">
       <div class="rankForm" id="rankFormOver">
@@ -298,6 +397,7 @@
   <div class="overlay hidden" id="winOverlay">
     <h2 id="winHeading">라운드 클리어!</h2>
     <div class="stars" id="starsLabel"></div>
+    <div class="stageDots" id="stageDotsWin"></div>
     <p id="winText"></p>
     <div class="rankEntry" id="rankEntryWin">
       <div class="rankForm" id="rankFormWin">
@@ -453,7 +553,7 @@
   for(let i = 0; i < HOLE_COUNT; i++){
     const h = document.createElement('div');
     h.className = 'hole';
-    h.innerHTML = `<div class="dirt"></div><div class="hammerFx">🔨</div><div class="mole">🐹</div>`;
+    h.innerHTML = `<div class="dirt"></div><div class="mole">🐹</div><div class="timerBar"></div><div class="hammerFx">🔨</div>`;
     const fire = e => {
       e.preventDefault();
       tapHole(i, h);
@@ -602,6 +702,29 @@
     const beatNum = Math.max(state.beatIndex, 0);
     beatInfoEl.textContent =
       `BPM ${bpm} (${term}) · 스테이지 ${state.stageIndex + 1}/${STAGES.length} · ${beatNum}/${state.totalBeats}박자`;
+    el('progressFill').style.width = state.totalBeats ? (beatNum / state.totalBeats * 100) + '%' : '0%';
+  }
+  // clearedCurrent: 지금 스테이지를 방금 깬 화면(클리어)이면 그 점도 완료 색으로.
+  function renderStageDots(container, clearedCurrent){
+    container.innerHTML = '';
+    const doneUpTo = clearedCurrent ? state.stageIndex : state.stageIndex - 1;
+    STAGES.forEach((_, i) => {
+      const d = document.createElement('span');
+      d.className = 'stageDot' + (i <= doneUpTo ? ' done' : i === state.stageIndex ? ' cur' : '');
+      d.title = `스테이지 ${i + 1}`;
+      container.appendChild(d);
+    });
+  }
+  let countdownTimer = null;
+  function showCountdown(text, isGo){
+    const c = el('countdownEl');
+    c.textContent = text;
+    c.classList.toggle('go', !!isGo);
+    c.classList.remove('show');
+    void c.offsetWidth;
+    c.classList.add('show');
+    clearTimeout(countdownTimer);
+    countdownTimer = setTimeout(() => c.classList.remove('show'), isGo ? 500 : Math.min(600, beatMs * 0.9));
   }
 
   // score/maxCombo 등은 스테이지를 넘어가도 계속 누적되는 세션 전체 값이고,
@@ -621,16 +744,49 @@
   }
   resetState();
 
-  function renderHUD(){
+  // lostIndex: 방금 잃은 하트 자리 — 그 하트만 흔들리며 꺼진다.
+  function renderHUD(lostIndex = -1){
     livesEl.innerHTML = '';
     for(let i = 0; i < 3; i++){
       const s = document.createElement('span');
-      s.className = 'heart' + (i < state.lives ? '' : ' off');
+      s.className = 'heart' + (i < state.lives ? '' : ' off') + (i === lostIndex ? ' lost' : '');
       s.textContent = '♥';
       livesEl.appendChild(s);
     }
     comboEl.textContent = `콤보 ${state.combo}`;
     scoreEl.textContent = `점수 ${state.score}`;
+  }
+  function bumpCombo(){
+    comboEl.classList.remove('bump');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('bump');
+  }
+  let vignetteTimer = null;
+  function missFlash(){
+    const v = el('missVignette');
+    v.classList.add('show');
+    clearTimeout(vignetteTimer);
+    vignetteTimer = setTimeout(() => v.classList.remove('show'), 60);
+  }
+  function spawnFx(holeEl, gained){
+    const pop = document.createElement('div');
+    pop.className = 'scorePop';
+    pop.textContent = `+${gained}`;
+    holeEl.appendChild(pop);
+    setTimeout(() => pop.remove(), 850);
+    const stars = ['⭐', '✨', '💫', '⭐', '✨'];
+    stars.forEach((ch, i) => {
+      const s = document.createElement('div');
+      s.className = 'starFx';
+      s.textContent = ch;
+      const ang = (-Math.PI * 0.9) + (i / (stars.length - 1)) * Math.PI * 0.8; // 위쪽 부채꼴
+      const dist = 34 + Math.random() * 22;
+      s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+      s.style.setProperty('--rot', (Math.random() * 90 - 45) + 'deg');
+      holeEl.appendChild(s);
+      setTimeout(() => s.remove(), 600);
+    });
   }
 
   let toastTimer = null;
@@ -641,9 +797,10 @@
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
   }
 
-  function pulseBeatDot(){
+  function pulseBeatDot(strong){
     beatDot.classList.add('pulse');
-    setTimeout(() => beatDot.classList.remove('pulse'), 110);
+    beatDot.classList.toggle('strong', !!strong);
+    setTimeout(() => beatDot.classList.remove('pulse', 'strong'), 110);
   }
 
   function hideMole(){
@@ -682,9 +839,10 @@
     state.lives--;
     state.misses++;
     buzz();
+    missFlash();
     holeEl.classList.add('shake');
     setTimeout(() => holeEl.classList.remove('shake'), 220);
-    renderHUD();
+    renderHUD(state.lives);
     if(state.lives <= 0){
       state.moleResolved = true;
       hideMole();
@@ -697,15 +855,18 @@
     state.moleResolved = true;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
-    state.score += 10 + Math.min(state.combo, 10) * 2;
+    const gained = 10 + Math.min(state.combo, 10) * 2;
+    state.score += gained;
     hitSound();
     if(navigator.vibrate) navigator.vibrate(18);
     // "잡힌" 티가 나게 두더지가 통통 튀며 작아지는 애니메이션을 먼저 보여준 뒤
     // 구멍을 원래대로 되돌린다(즉시 슥 사라지면 "잡았다"는 느낌이 안 남).
     holeEl.classList.add('hitGood');
     setTimeout(() => holeEl.classList.remove('hitGood', 'up'), 220);
+    spawnFx(holeEl, gained);
     if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
     renderHUD();
+    bumpCombo();
   }
 
   function registerMiss(){
@@ -716,9 +877,10 @@
     state.lives--;
     state.misses++;
     buzz();
+    missFlash();
     holeEl.classList.add('hitMiss');
     setTimeout(() => holeEl.classList.remove('hitMiss'), 250);
-    renderHUD();
+    renderHUD(state.lives);
     if(state.lives <= 0){
       clearTimeout(beatTimer);
       gameOver();
@@ -726,7 +888,8 @@
   }
 
   function onBeat(){
-    pulseBeatDot();
+    // 리프는 4박 단위로 강박이 돌아온다(RIFF_BASS 패턴 기준) — 그 박만 크게 표시.
+    pulseBeatDot(state.riffPos % 4 === 0);
     playRiffNote(state.riffPos++);
 
     // 지난 박자에서 나온 두더지를 아직 못 잡았으면 이번 박자에서 miss 처리.
@@ -740,7 +903,14 @@
       return;
     }
     updateBeatInfo();
-    if(state.beatIndex >= 0) spawnMole();
+    if(state.beatIndex >= 0){
+      if(state.beatIndex === 0) showCountdown('시작!', true);
+      spawnMole();
+    } else {
+      // 예비 박자(두더지 없는 한 박) 동안 "준비"를 크게 보여줘서 첫 두더지가
+      // 바로 다음 박에 나온다는 걸 미리 알 수 있게.
+      showCountdown('준비');
+    }
   }
 
   function gameOver(){
@@ -751,6 +921,7 @@
       `점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
     onAgain = () => startStage(state.stageIndex);
     el('retryBtn').textContent = '이 스테이지 다시';
+    renderStageDots(el('stageDotsOver'), false);
     resetRankEntryOver();
     overOverlay.classList.remove('hidden');
   }
@@ -758,6 +929,7 @@
     state.screen = 'victory';
     const stars = state.misses === 0 ? 3 : state.misses <= 1 ? 2 : 1;
     el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    renderStageDots(el('stageDotsWin'), true);
     const isLast = state.stageIndex >= STAGES.length - 1;
     const rankEntryWin = el('rankEntryWin');
     if(isLast){
@@ -786,6 +958,7 @@
     state.stageIndex = idx;
     state.totalBeats = STAGES[idx].beats;
     beatMs = beatMsForStage(idx);
+    moleGrid.style.setProperty('--beat-ms', beatMs + 'ms'); // 구멍 타이머 막대가 한 박에 맞춰 줄어들도록
     state.screen = 'playing';
     state.lives = 3;
     state.combo = 0;
