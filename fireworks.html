@@ -845,9 +845,6 @@
   }
 
   function onTick(){
-    pulseBeatDot();
-    tickClick();
-
     // 이전 틱에서 눌러야 했는데 못 누른 onset을 판정.
     if(state.pendingOnset && !state.pendingResolved){
       registerFalseShot(50);
@@ -860,6 +857,7 @@
       victory();
       return;
     }
+    pulseBeatDot();
     updateBeatInfo();
     if(state.tickIndex >= 0){
       const { elIdx, offset, info } = currentElementAndOffset(state.tickIndex);
@@ -867,7 +865,12 @@
       state.pendingOnset = info.onset && offset === 0;
       state.pendingResolved = !state.pendingOnset;
       if(state.tickIndex === 0) showCountdown('시작!', true);
+      // 실제 플레이 중엔 메트로놈 틱 소리를 껐다 — 정답 때 나는 휭/펑 소리가
+      // 그 자체로 박자 기준이 되는데, 거기에 별개로 계속 울리는 틱 소리까지
+      // 겹치니 "엇박"처럼 들렸다("폭죽 소리 때문인가" 피드백 반영). 예비
+      // 박자(카운트다운) 동안에는 박을 잡아주는 게 더 중요해서 그대로 둔다.
     } else {
+      tickClick();
       state.pendingOnset = false;
       state.pendingResolved = true;
       rhythmLabelEl.textContent = '🎯 준비하세요...';
