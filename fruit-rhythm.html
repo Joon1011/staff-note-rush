@@ -97,9 +97,10 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 .track{
   position:relative;background:#fff;border:2px solid var(--line);
   border-radius:12px;padding:10px 8px;margin-bottom:10px;flex-shrink:0;
+  overflow-x:hidden;
 }
-.measRow{display:flex;gap:5px;}
-.beat{flex:1;display:flex;gap:2px;}
+.measRow{display:flex;gap:5px;min-width:0;}
+.beat{flex:1;display:flex;gap:2px;min-width:0;}
 .cell{
   flex-grow:var(--w);flex-basis:0;min-width:0;
   border:4px solid var(--c);border-radius:8px;
@@ -140,7 +141,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   transition:opacity .18s;opacity:0;flex-shrink:0;margin:6px 0;
 }
 .verdict.show{opacity:1;}
-.v-perfect{color:#12A150;} .v-good{color:#F5A623;} .v-miss{color:#C9C2B4;}
+.v-perfect{color:#12A150;} .v-good{color:#F5A623;} .v-miss{color:#C0392B;}
 
 .countdown{
   position:absolute;inset:0;background:rgba(253,251,244,.93);
@@ -417,7 +418,7 @@ function renderMeasure(mi){
       const c=document.createElement('div');
       c.className='cell'; c.style.setProperty('--c',p.c);
       c.style.setProperty('--w', s[1]);
-      c.innerHTML = `${s[0]} <span class="cellNote">(${noteCharFor(s[1])})</span>`;
+      c.innerHTML = `${s[0]} <span class="cellNote">(${noteCharFor(s[1])}${p.trip ? '³' : ''})</span>`;
       c.dataset.key = mi+'-'+bi+'-'+si;
       d.appendChild(c);
     });
@@ -518,6 +519,7 @@ function markCell(key, cls){
 function onTap(){
   if(!running) return;
   tapSound();
+  if(navigator.vibrate) navigator.vibrate(15); // 탭이 실제로 씹혔는지 헷갈린다는 피드백 — 매 탭마다 촉각 반응을 준다
   const z=$('tapZone'); z.classList.add('flash');
   setTimeout(()=>z.classList.remove('flash'),70);
 
