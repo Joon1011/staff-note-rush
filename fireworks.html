@@ -601,7 +601,21 @@
   }
 
   // ---------- 게임 상태 ----------
-  let state, tickTimer = null, beatMs = 640, tickMs = 320;
+  let state, tickTimer = null, beatMs = 640, tickMs = 320, nextTickAt = 0;
+
+  // setInterval(onTick, tickMs)는 콜백 실행(불꽃 파티클 DOM 생성 등)이 몇 ms만
+  // 걸려도 그 지연이 다음 틱으로 그대로 누적돼 점점 밀리는 엇박 원인이 된다.
+  // nextTickAt에 절대 목표 시각을 잡아두고 setTimeout 지연을 매번 그 시각까지
+  // 남은 만큼만 주면, 한 틱이 늦게 끝나도 다음 틱이 그만큼 보정되어 드리프트가
+  // 쌓이지 않는다.
+  function scheduleTick(){
+    const delay = Math.max(0, nextTickAt - performance.now());
+    tickTimer = setTimeout(() => {
+      nextTickAt += tickMs;
+      onTick();
+      if(state.screen === 'playing') scheduleTick();
+    }, delay);
+  }
 
   function updateBeatInfo(){
     const bpm = Math.round(60000 / beatMs);
@@ -615,7 +629,7 @@
     state = {
       screen:'start',
       score:0, combo:0, maxCombo:0,
-      lives:3, correct:0, misses:0,
+      lives:3, misses:0,
       stageIndex:0,
       tickIndex:-LEAD_IN_TICKS - 1,
       pendingOnset:false, pendingResolved:true,
@@ -789,7 +803,6 @@
 
   function registerHitOnset(xPct){
     state.pendingResolved = true;
-    state.correct++;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     state.score += 10 + Math.min(state.combo, 10) * 2;
@@ -808,7 +821,7 @@
     fizzle(xPct);
     renderHUD();
     if(state.lives <= 0){
-      clearInterval(tickTimer);
+      clearTimeout(tickTimer);
       gameOver();
     }
   }
@@ -822,7 +835,7 @@
 
     state.tickIndex++;
     if(state.tickIndex >= state.totalTicks){
-      clearInterval(tickTimer);
+      clearTimeout(tickTimer);
       victory();
       return;
     }
@@ -917,9 +930,10 @@
     renderStrip(stage.pattern);
     renderHUD();
     updateBeatInfo();
-    clearInterval(tickTimer);
+    clearTimeout(tickTimer);
     onTick();
-    tickTimer = setInterval(onTick, tickMs);
+    nextTickAt = performance.now() + tickMs;
+    scheduleTick();
   }
 
   function startGame(){
@@ -936,7 +950,7 @@
   });
 
   function backToMenu(){
-    clearInterval(tickTimer);
+    clearTimeout(tickTimer);
     state.screen = 'start';
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
@@ -950,9 +964,10 @@
 
   document.addEventListener('visibilitychange', () => {
     if(document.hidden){
-      clearInterval(tickTimer);
+      clearTimeout(tickTimer);
     } else if(state.screen === 'playing'){
-      tickTimer = setInterval(onTick, tickMs);
+      nextTickAt = performance.now() + tickMs;
+      scheduleTick();
     }
   });
 
