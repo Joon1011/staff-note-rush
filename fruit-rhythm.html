@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FDFBF4">
+<title>과일 리듬 탭</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FDFBF4;
+  --grid:#E7E3D6;
+  --ink:#3D3730;
+  --dim:#8C8578;
+  --line:#DAD4C4;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;}
+@supports(height:100dvh){html,body{height:100dvh;}}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'Jua',system-ui,sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  padding:max(4px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  -webkit-user-select:none;user-select:none;
+}
+.app{
+  width:100%;max-width:900px;height:100%;max-height:1000px;
+  background:
+    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/26px 26px,
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/26px 26px,
+    var(--paper);
+  border:2px solid var(--line);border-radius:16px;
+  display:flex;flex-direction:column;overflow:hidden;position:relative;
+}
+.view{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;display:none;}
+.view.active{display:block;}
+.view.col.active{display:flex;flex-direction:column;}
+
+h1{font-size:clamp(1.2rem,5vw,1.6rem);margin:0 0 2px;}
+h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
+.lede{font-family:'Gaegu',cursive;font-size:clamp(.95rem,3.6vw,1.1rem);
+  color:var(--dim);margin:0 0 14px;line-height:1.5;font-weight:700;}
+
+/* ---- 리듬 카드 ---- */
+.cardGrid{display:grid;grid-template-columns:1fr;gap:9px;}
+@media(min-width:600px){.cardGrid{grid-template-columns:1fr 1fr;}}
+.rcard{
+  background:#fff;border:3px solid var(--c);border-radius:12px;
+  padding:10px 11px;display:flex;align-items:center;gap:11px;
+  cursor:pointer;font-family:inherit;color:var(--ink);width:100%;text-align:left;
+}
+.rcard:active{transform:scale(.985);}
+.rcard .glyph{width:64px;flex-shrink:0;}
+.rcard .info{flex:1;min-width:0;}
+.rcard .fname{font-size:1.05rem;line-height:1.15;}
+.rcard .fdesc{font-family:'Gaegu',cursive;font-weight:700;font-size:.92rem;color:var(--dim);}
+.boxes{display:flex;gap:2px;margin-top:5px;height:20px;}
+.boxes span{
+  border:2px solid var(--c);border-radius:4px;background:color-mix(in srgb,var(--c) 12%,#fff);
+  font-family:'Gaegu',cursive;font-weight:700;font-size:.78rem;
+  display:flex;align-items:center;justify-content:center;color:var(--c);
+}
+
+/* ---- 레벨 ---- */
+.levels{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px;}
+.lvBtn{
+  font-family:'Jua',sans-serif;font-size:.9rem;
+  background:#fff;border:2px solid var(--line);color:var(--dim);
+  border-radius:99px;padding:9px 15px;min-height:44px;cursor:pointer;
+}
+.lvBtn.on{border-color:var(--ink);color:var(--ink);background:#FFF6D9;}
+.tempoRow{display:flex;gap:7px;margin:8px 0 16px;}
+
+.bigBtn{
+  font-family:'Jua',sans-serif;font-size:1.1rem;
+  background:#FF8A3D;color:#fff;border:none;border-bottom:5px solid #D96A26;
+  border-radius:14px;padding:15px 30px;min-height:56px;width:100%;cursor:pointer;
+}
+.bigBtn:active{transform:translateY(3px);border-bottom-width:2px;}
+.bigBtn.ghost{background:#fff;color:var(--dim);border:2px solid var(--line);
+  border-bottom:2px solid var(--line);font-size:.95rem;min-height:46px;}
+
+/* ---- 플레이 ---- */
+.pbar{display:flex;justify-content:space-between;align-items:center;
+  font-family:'Gaegu',cursive;font-weight:700;font-size:.95rem;color:var(--dim);
+  margin-bottom:8px;flex-shrink:0;}
+.pbar .back{background:#fff;border:2px solid var(--line);color:var(--dim);
+  border-radius:9px;padding:6px 12px;min-height:38px;font-family:inherit;
+  font-size:.9rem;cursor:pointer;}
+
+.track{
+  position:relative;background:#fff;border:2px solid var(--line);
+  border-radius:12px;padding:10px 8px;margin-bottom:10px;flex-shrink:0;
+}
+.measRow{display:flex;gap:5px;}
+.beat{flex:1;display:flex;gap:2px;}
+.cell{
+  flex-grow:var(--w);flex-basis:0;
+  border:3px solid var(--c);border-radius:6px;
+  background:color-mix(in srgb,var(--c) 10%,#fff);
+  font-family:'Gaegu',cursive;font-weight:700;
+  font-size:clamp(.85rem,3.4vw,1.1rem);color:var(--c);
+  display:flex;align-items:center;justify-content:center;
+  height:clamp(46px,9vh,64px);
+  transition:transform .08s,background .12s,box-shadow .12s;
+}
+.cell.hit{background:var(--c);color:#fff;transform:scale(1.06);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 25%,transparent);}
+.cell.ok{background:color-mix(in srgb,var(--c) 55%,#fff);color:#fff;}
+.cell.miss{background:#EFEAE0;border-color:#C9C2B4;color:#B0A899;}
+.playhead{
+  position:absolute;top:6px;bottom:6px;width:3px;background:#FF3B30;
+  border-radius:2px;left:0;opacity:0;pointer-events:none;
+}
+.playhead.on{opacity:.85;}
+.mlabel{font-family:'Gaegu',cursive;font-weight:700;font-size:.8rem;
+  color:var(--dim);text-align:center;margin-top:6px;}
+
+.tapZone{
+  flex:1;min-height:110px;border:3px dashed var(--line);border-radius:16px;
+  background:#fff;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;cursor:pointer;
+  transition:background .06s,border-color .06s;
+}
+.tapZone:active,.tapZone.flash{background:#FFF3E0;border-color:#FF8A3D;}
+.tapZone .big{font-size:clamp(1.3rem,6vw,1.9rem);}
+.tapZone .small{font-family:'Gaegu',cursive;font-weight:700;
+  font-size:.95rem;color:var(--dim);}
+.verdict{
+  font-size:clamp(1.4rem,7vw,2rem);height:1.3em;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .18s;opacity:0;flex-shrink:0;margin:6px 0;
+}
+.verdict.show{opacity:1;}
+.v-perfect{color:#12A150;} .v-good{color:#F5A623;} .v-miss{color:#C9C2B4;}
+
+.countdown{
+  position:absolute;inset:0;background:rgba(253,251,244,.93);
+  display:flex;align-items:center;justify-content:center;
+  font-size:5rem;color:#FF8A3D;z-index:20;
+}
+.countdown.hidden{display:none;}
+
+/* ---- 결과 ---- */
+.res{text-align:center;margin:auto;padding:20px;}
+.score{font-size:3rem;color:#FF8A3D;line-height:1.1;}
+.tally{display:flex;justify-content:center;gap:16px;margin:14px 0;
+  font-family:'Gaegu',cursive;font-weight:700;font-size:1.05rem;}
+.tally b{display:block;font-family:'Jua',sans-serif;font-size:1.5rem;}
+.stars{font-size:2.2rem;letter-spacing:5px;color:#F5A623;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 홈 -->
+  <div class="view active" id="home">
+    <h1>🍊 과일 리듬 탭</h1>
+    <p class="lede">과일 이름을 말하듯이 화면을 두드려 박자를 익혀요.<br>카드를 누르면 그 리듬만 따로 연습할 수 있어요.</p>
+
+    <h2>난이도</h2>
+    <div class="levels" id="levelRow"></div>
+    <h2>빠르기</h2>
+    <div class="tempoRow" id="tempoRow"></div>
+    <button class="bigBtn" id="startChallenge">도전 시작</button>
+
+    <h2 style="margin-top:20px;">리듬 카드</h2>
+    <p class="lede" style="margin-bottom:9px;">카드를 누르면 소리를 들려주고, 바로 따라칠 수 있어요.</p>
+    <div class="cardGrid" id="cardGrid"></div>
+  </div>
+
+  <!-- 플레이 -->
+  <div class="view col" id="play">
+    <div class="pbar">
+      <button class="back" id="quit">← 나가기</button>
+      <span id="progressLbl">1 / 4 마디</span>
+      <span id="comboLbl">연속 0</span>
+    </div>
+    <div class="track">
+      <div class="measRow" id="measRow"></div>
+      <div class="playhead" id="playhead"></div>
+      <div class="mlabel" id="mlabel">—</div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="tapZone" id="tapZone">
+      <div class="big">👆 여기를 두드려요</div>
+      <div class="small">글자 하나에 한 번씩!</div>
+    </div>
+    <div class="countdown hidden" id="countdown">4</div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="view col" id="result">
+    <div class="res">
+      <div class="stars" id="stars">☆☆☆</div>
+      <div class="score" id="scorePct">0%</div>
+      <div class="tally">
+        <span><b id="tPerfect">0</b>딱 맞음</span>
+        <span><b id="tGood">0</b>거의 맞음</span>
+        <span><b id="tMiss">0</b>놓침</span>
+      </div>
+      <p class="lede" id="resMsg"></p>
+      <button class="bigBtn" id="retry" style="margin-bottom:8px;">한 번 더</button>
+      <button class="bigBtn ghost" id="toHome">돌아가기</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ========== 리듬 패턴 (교재 그대로) ========== */
+const P = [
+  { id:'gyul',   word:'귤',      c:'#F0932B', desc:'한 박을 통으로',        s:[['귤',1]] },
+  { id:'lemon',  word:'레몬',    c:'#D4C734', desc:'반 박씩 두 번',         s:[['레',.5],['몬',.5]] },
+  { id:'banana', word:'바나나',  c:'#E8B93C', desc:'셋잇단 — 셋으로 똑같이', s:[['바',1/3],['나',1/3],['나',1/3]], trip:true },
+  { id:'pine',   word:'파인애플', c:'#0F7360', desc:'네 번 똑같이',          s:[['파',.25],['인',.25],['애',.25],['플',.25]] },
+  { id:'grape',  word:'청포도',  c:'#7CB342', desc:'길게 - 짧게 짧게',      s:[['청',.5],['포',.25],['도',.25]] },
+  { id:'coco',   word:'코코넛',  c:'#7B4A22', desc:'짧게 짧게 - 길게',      s:[['코',.25],['코',.25],['넛',.5]] },
+  { id:'peach',  word:'복숭아',  c:'#E88B92', desc:'짧게 - 길게 - 짧게',    s:[['복',.25],['숭',.5],['아',.25]] },
+  { id:'mango',  word:'망고',    c:'#E3B008', desc:'아주 길게 - 짧게',      s:[['망',.75],['고',.25]] },
+  { id:'berry',  word:'딸기',    c:'#D0021B', desc:'짧게 - 아주 길게',      s:[['딸',.25],['기',.75]] },
+];
+const byId = id => P.find(p=>p.id===id);
+
+const LEVELS = [
+  { n:'1단계', ids:['gyul','lemon'],                                   note:'기본 박과 반 박' },
+  { n:'2단계', ids:['gyul','lemon','banana','pine'],                   note:'셋·넷으로 쪼개기' },
+  { n:'3단계', ids:['gyul','lemon','grape','coco','pine'],             note:'길고 짧은 섞기' },
+  { n:'4단계', ids:['gyul','lemon','grape','coco','peach','mango','berry'], note:'당김음과 점음표' },
+];
+const TEMPOS = [ {n:'느리게',bpm:60}, {n:'보통',bpm:76}, {n:'빠르게',bpm:92} ];
+
+let level = 0, tempo = 1, practiceId = null;
+
+/* ========== 오디오 ========== */
+let ac=null, master=null, nb=null;
+function initAudio(){
+  if(!ac){
+    const AC = window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    ac = new AC();
+    master = ac.createGain(); master.gain.value=.9; master.connect(ac.destination);
+    const len = ac.sampleRate*.4;
+    nb = ac.createBuffer(1,len,ac.sampleRate);
+    const d = nb.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  }
+  if(ac.state==='suspended') ac.resume();
+}
+['touchstart','pointerdown','click'].forEach(e=>
+  document.addEventListener(e, initAudio, {passive:true}));
+
+function click(t, accent){
+  if(!ac) return;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type='square'; o.frequency.value = accent?1400:900;
+  g.gain.setValueAtTime(accent?.22:.12,t);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.05);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.06);
+}
+function woodblock(t, pitch=1){
+  if(!ac) return;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type='triangle';
+  o.frequency.setValueAtTime(900*pitch,t);
+  o.frequency.exponentialRampToValueAtTime(420*pitch,t+.06);
+  g.gain.setValueAtTime(.3,t);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.14);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.16);
+}
+function tapSound(){
+  if(!ac) return; const t=ac.currentTime;
+  const s=ac.createBufferSource(); s.buffer=nb;
+  const bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2200; bp.Q.value=1.4;
+  const g=ac.createGain();
+  g.gain.setValueAtTime(.22,t); g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+  s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t+.08);
+}
+function chime(){
+  if(!ac) return; const t=ac.currentTime;
+  [72,76,79,84].forEach((m,i)=>{
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='sine'; o.frequency.value=440*Math.pow(2,(m-69)/12);
+    const st=t+i*.09;
+    g.gain.setValueAtTime(.0001,st);
+    g.gain.exponentialRampToValueAtTime(.16,st+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,st+.7);
+    o.connect(g); g.connect(master); o.start(st); o.stop(st+.75);
+  });
+}
+
+/* ========== 음표 그림 (SVG) ========== */
+function glyph(p){
+  const W=64,H=46, base=34;
+  let x=6, out='', heads=[];
+  const total = p.s.length;
+  const gap = total<=2 ? 22 : total===3 ? 16 : 13;
+  p.s.forEach((s,i)=>{ heads.push(x); x+=gap; });
+  const stemTop = 8;
+  heads.forEach(hx=>{
+    out += `<ellipse cx="${hx}" cy="${base}" rx="5" ry="3.9" fill="${p.c}" transform="rotate(-18 ${hx} ${base})"/>`;
+    out += `<line x1="${hx+4.6}" y1="${base-1}" x2="${hx+4.6}" y2="${stemTop}" stroke="${p.c}" stroke-width="2"/>`;
+  });
+  if(p.s.length>1){
+    const a=heads[0]+4.6, b=heads[heads.length-1]+4.6;
+    out += `<line x1="${a}" y1="${stemTop+1}" x2="${b}" y2="${stemTop+1}" stroke="${p.c}" stroke-width="3.4" stroke-linecap="round"/>`;
+    // 16분음표용 둘째 빔
+    const shorts = p.s.filter(s=>s[1]<=.26).length;
+    if(shorts>=2){
+      out += `<line x1="${a}" y1="${stemTop+6}" x2="${b}" y2="${stemTop+6}" stroke="${p.c}" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>`;
+    }
+  }
+  if(p.trip) out += `<text x="${(heads[0]+heads[heads.length-1])/2}" y="${base+13}" font-size="11" fill="${p.c}" text-anchor="middle" font-family="Gaegu">3</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${out}</svg>`;
+}
+
+/* ========== 홈 ========== */
+const $ = id => document.getElementById(id);
+function show(v){ ['home','play','result'].forEach(x=>$(x).classList.toggle('active', x===v)); }
+
+function renderHome(){
+  const lr = $('levelRow'); lr.innerHTML='';
+  LEVELS.forEach((L,i)=>{
+    const b=document.createElement('button');
+    b.className='lvBtn'+(i===level?' on':''); b.textContent=L.n;
+    b.onclick=()=>{ level=i; renderHome(); };
+    lr.appendChild(b);
+  });
+  const tr = $('tempoRow'); tr.innerHTML='';
+  TEMPOS.forEach((T,i)=>{
+    const b=document.createElement('button');
+    b.className='lvBtn'+(i===tempo?' on':''); b.textContent=T.n;
+    b.onclick=()=>{ tempo=i; renderHome(); };
+    tr.appendChild(b);
+  });
+  const cg = $('cardGrid'); cg.innerHTML='';
+  P.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='rcard'; b.style.setProperty('--c',p.c);
+    b.innerHTML = `
+      <div class="glyph">${glyph(p)}</div>
+      <div class="info">
+        <div class="fname">${p.word}</div>
+        <div class="fdesc">${p.desc}</div>
+        <div class="boxes">${p.s.map(s=>
+          `<span style="flex-grow:${s[1]}">${s[0]}</span>`).join('')}</div>
+      </div>`;
+    b.onclick=()=>startGame(p.id);
+    cg.appendChild(b);
+  });
+}
+
+/* ========== 게임 ========== */
+const MEASURES = 4;
+let seq=[], onsets=[], startT=0, running=false, raf=null;
+let idxPerfect=0, idxGood=0, idxMiss=0, combo=0, maxCombo=0, curMeasure=-1;
+let beatDur=.8, measDur=3.2;
+
+function buildSequence(){
+  const pool = practiceId ? [practiceId] : LEVELS[level].ids;
+  seq = [];
+  for(let m=0;m<MEASURES;m++){
+    const bar=[];
+    for(let b=0;b<4;b++) bar.push(pool[Math.floor(Math.random()*pool.length)]);
+    seq.push(bar);
+  }
+}
+function renderMeasure(mi){
+  const row=$('measRow'); row.innerHTML='';
+  seq[mi].forEach((id,bi)=>{
+    const p=byId(id);
+    const d=document.createElement('div');
+    d.className='beat';
+    p.s.forEach((s,si)=>{
+      const c=document.createElement('div');
+      c.className='cell'; c.style.setProperty('--c',p.c);
+      c.style.setProperty('--w', s[1]);
+      c.textContent=s[0];
+      c.dataset.key = mi+'-'+bi+'-'+si;
+      d.appendChild(c);
+    });
+    row.appendChild(d);
+  });
+  $('mlabel').textContent = seq[mi].map(id=>byId(id).word).join('  ·  ');
+  $('progressLbl').textContent = `${mi+1} / ${MEASURES} 마디`;
+}
+function buildOnsets(){
+  onsets=[];
+  seq.forEach((bar,mi)=>{
+    bar.forEach((id,bi)=>{
+      const p=byId(id); let acc=0;
+      p.s.forEach((s,si)=>{
+        onsets.push({
+          t:(mi*4+bi+acc)*beatDur,
+          key:mi+'-'+bi+'-'+si, mi, judged:false
+        });
+        acc += s[1];
+      });
+    });
+  });
+}
+
+function startGame(pid){
+  initAudio();
+  practiceId = pid || null;
+  beatDur = 60/TEMPOS[tempo].bpm;
+  measDur = beatDur*4;
+  idxPerfect=idxGood=idxMiss=0; combo=0; maxCombo=0; curMeasure=-1;
+  buildSequence(); buildOnsets();
+  renderMeasure(0); curMeasure=0;
+  $('comboLbl').textContent='연속 0';
+  $('verdict').className='verdict';
+  show('play');
+  countIn();
+}
+
+function countIn(){
+  const cd=$('countdown'); cd.classList.remove('hidden');
+  const t0 = ac ? ac.currentTime+.25 : 0;
+  for(let i=0;i<4;i++) click(t0+i*beatDur, i===0);
+  let n=4;
+  cd.textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n<=0){ clearInterval(iv); cd.classList.add('hidden'); begin(t0+4*beatDur); }
+    else cd.textContent=n;
+  }, beatDur*1000);
+}
+
+function begin(when){
+  startT = when;
+  running = true;
+  $('playhead').classList.add('on');
+  // 연습 모드에서는 정답 리듬을 소리로 안내
+  if(practiceId){
+    onsets.forEach(o=>woodblock(startT+o.t, 1));
+  } else {
+    for(let b=0;b<MEASURES*4;b++) click(startT+b*beatDur, b%4===0);
+  }
+  raf = requestAnimationFrame(tick);
+}
+
+function tick(){
+  if(!running) return;
+  const now = ac.currentTime - startT;
+  const total = MEASURES*measDur;
+
+  const mi = Math.min(MEASURES-1, Math.floor(now/measDur));
+  if(mi !== curMeasure && mi >= 0){ curMeasure = mi; renderMeasure(mi); }
+
+  const inMeas = (now - curMeasure*measDur) / measDur;
+  const track = $('measRow').getBoundingClientRect();
+  const box = $('playhead').parentElement.getBoundingClientRect();
+  $('playhead').style.left =
+    (track.left - box.left + Math.max(0,Math.min(1,inMeas))*track.width) + 'px';
+
+  // 놓친 온셋 처리
+  onsets.forEach(o=>{
+    if(!o.judged && now - o.t > .19){
+      o.judged=true; idxMiss++; combo=0;
+      $('comboLbl').textContent='연속 0';
+      markCell(o.key,'miss');
+    }
+  });
+
+  if(now > total + .4){ finish(); return; }
+  raf = requestAnimationFrame(tick);
+}
+
+function markCell(key, cls){
+  if(!key) return;
+  const c = document.querySelector(`.cell[data-key="${key}"]`);
+  if(c) c.classList.add(cls);
+}
+
+function onTap(){
+  if(!running) return;
+  tapSound();
+  const z=$('tapZone'); z.classList.add('flash');
+  setTimeout(()=>z.classList.remove('flash'),70);
+
+  const now = ac.currentTime - startT;
+  let best=null, bd=Infinity;
+  onsets.forEach(o=>{
+    if(o.judged) return;
+    const d=Math.abs(o.t-now);
+    if(d<bd){ bd=d; best=o; }
+  });
+  if(!best || bd>.26){ showVerdict('빗나갔어','v-miss'); combo=0; $('comboLbl').textContent='연속 0'; return; }
+
+  best.judged=true;
+  if(bd<=.09){ idxPerfect++; combo++; showVerdict('딱 맞았어!','v-perfect'); markCell(best.key,'hit'); }
+  else       { idxGood++;    combo++; showVerdict('거의 맞았어','v-good');  markCell(best.key,'ok'); }
+  maxCombo=Math.max(maxCombo,combo);
+  $('comboLbl').textContent='연속 '+combo;
+}
+let vTimer=null;
+function showVerdict(text, cls){
+  const v=$('verdict');
+  v.className='verdict show '+cls; v.textContent=text;
+  clearTimeout(vTimer);
+  vTimer=setTimeout(()=>v.classList.remove('show'), 500);
+}
+
+const tz=$('tapZone');
+tz.addEventListener('touchstart', e=>{ e.preventDefault(); onTap(); }, {passive:false});
+tz.addEventListener('mousedown', e=>{ if(e.button===0 && !('ontouchstart' in window)) onTap(); });
+window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); onTap(); } });
+
+function stop(){
+  running=false; cancelAnimationFrame(raf);
+  $('playhead').classList.remove('on');
+  if(ac){ ac.close(); ac=null; initAudio(); }   // 예약된 소리 즉시 중단
+}
+function finish(){
+  stop();
+  const total = onsets.length;
+  const pct = Math.round((idxPerfect + idxGood*0.5) / total * 100);
+  const stars = pct>=90?3 : pct>=70?2 : pct>=45?1 : 0;
+  $('stars').textContent = '★'.repeat(stars)+'☆'.repeat(3-stars);
+  $('scorePct').textContent = pct+'%';
+  $('tPerfect').textContent = idxPerfect;
+  $('tGood').textContent = idxGood;
+  $('tMiss').textContent = idxMiss;
+  $('resMsg').textContent =
+    pct>=90 ? `최고 연속 ${maxCombo}번! 이 리듬은 완전히 익혔어.` :
+    pct>=70 ? `최고 연속 ${maxCombo}번. 조금만 더 정확하게!` :
+    pct>=45 ? '과일 이름을 소리 내어 말하면서 두드려봐.' :
+              '빠르기를 한 단계 낮추고 다시 해볼까?';
+  if(stars>=2) setTimeout(chime, 200);
+  show('result');
+}
+$('quit').onclick = ()=>{ stop(); show('home'); };
+$('retry').onclick = ()=> startGame(practiceId);
+$('toHome').onclick = ()=>{ practiceId=null; show('home'); renderHome(); };
+$('startChallenge').onclick = ()=> startGame(null);
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && running){ stop(); show('home'); }
+});
+
+renderHome();
+})();
+</script>
+</body>
+</html>
