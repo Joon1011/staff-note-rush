@@ -723,6 +723,10 @@
   }
 
   function gameOver(){
+    // setTimeout으로 지연 호출되는 함수라, 그 사이 사용자가 메뉴로 나가거나
+    // 새 게임을 시작해 screen이 이미 바뀌었으면 옛 라운드의 결과로 화면을
+    // 덮어써선 안 된다.
+    if(state.screen !== 'playing') return;
     state.screen = 'gameover';
     el('overText').textContent =
       `${state.song.title}, ${state.songPos}/${state.song.sequence.length}음까지 갔어요. 점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
@@ -730,6 +734,7 @@
     overOverlay.classList.remove('hidden');
   }
   function victory(){
+    if(state.screen !== 'playing') return;
     state.screen = 'victory';
     const stars = state.misses === 0 ? 3 : state.misses <= 2 ? 2 : 1;
     el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
