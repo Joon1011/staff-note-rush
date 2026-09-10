@@ -158,6 +158,9 @@
   .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
   .noteBtn.correctFlash{background:var(--gold);}
   .noteBtn.wrongFlash{background:var(--coral); color:#3a0f0f;}
+  /* 판정 구간에 들어오기 전에 누른 경우 — 벌칙은 없고 "아직"이라는 표시만 */
+  .noteBtn.earlyFlash{background:#5a4a95; color:var(--text-muted); animation:earlyNudge .22s ease-out;}
+  @keyframes earlyNudge{ 0%,100%{transform:translateX(0);} 35%{transform:translateX(-3px);} 70%{transform:translateX(3px);} }
   /* 틀리거나 놓쳤을 때 정답 버튼이 잠깐 금색 테두리로 깜빡여서 "이게 정답이었어"를 알려준다 */
   .noteBtn.hintFlash{ box-shadow:0 0 0 4px var(--gold), 0 0 16px rgba(255,200,87,.7); animation:hintBlink .6s ease-in-out; }
   @keyframes hintBlink{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
@@ -272,9 +275,10 @@
 
   <div class="overlay" id="startOverlay">
     <h2>오선보 노트 러시</h2>
-    <p>음표가 오른쪽에서 나타나 판정선에 닿기 전에, 오선보 위 자리를 보고
-    알맞은 음이름 버튼을 눌러주세요. 정답을 맞힐 때마다 그 음이 소리로 들려서
-    동요 멜로디를 그대로 연주하게 돼요.</p>
+    <p>음표가 오른쪽에서 흘러와 판정선 앞 <b>파란 구간</b>에 들어오면, 오선보 위
+    자리를 보고 알맞은 음이름 버튼을 눌러주세요. 너무 일찍 누르면 정답으로
+    인정되지 않아요. 맞힐 때마다 그 음이 소리로 들려서 동요 멜로디를 그대로
+    연주하게 돼요.</p>
     <div class="sectionLabel">동요 선택</div>
     <div class="songPick" id="songPick">
       <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
@@ -500,20 +504,51 @@
     const lineGap    = Math.min(H * 0.115, W * 0.075);
     // 맨 아래 줄(E4) — 오선(+아래 덧줄 여유)이 캔버스 세로 중앙에 오도록
     const bottomLine = H * 0.5 + lineGap * 2.2;
+
+    // 높은음자리표는 글리프가 넓어서, 예전처럼 판정선을 화면 폭 비율(20%)로
+    // 고정하면 자리표가 판정선을 덮어 음표가 자리표 뒤에서 사라졌다. 실제
+    // 글리프 폭을 재서 오선과 판정선을 그 오른쪽부터 시작하게 한다.
+    const clefSize = lineGap * 6.4;
+    const clefX = W * 0.015;
+    ctx.font = `${clefSize}px Georgia, 'Times New Roman', serif`;
+    const m = ctx.measureText('𝄞');
+    const clefRight = clefX + (m.actualBoundingBoxRight || m.width || lineGap * 3);
+
     geo = {
       lineGap,
       bottomLine,
       half: lineGap / 2,
-      staffLeft: W * 0.13,
-      judgeX: Math.max(W * 0.20, 54),
+      // 오선은 자리표 밑까지 그린다(악보에서 자리표는 오선 위에 얹힌다).
+      staffLeft: W * 0.02,
+      // 판정선만 자리표 오른쪽으로 — 그래야 음표가 자리표 뒤에서 사라지지 않는다.
+      judgeX: Math.min(clefRight + lineGap * 0.4, W * 0.5),
       spawnX: W - Math.max(W * 0.05, 18),
       noteRx: lineGap * 0.46,
       noteRy: lineGap * 0.34,
       stem: lineGap * 1.5,
-      clefSize: lineGap * 6.4,
+      clefSize,
+      clefX,
     };
   }
   const yOf = step => geo.bottomLine - step * geo.half;
+
+  // ---------- 판정 구간 ----------
+  // 음표가 판정선 바로 앞 이 구간에 들어왔을 때만 정답이 인정된다. 예전엔
+  // 위치와 상관없이 계이름만 맞으면 바로 정답 처리돼서, 음표가 아직 화면
+  // 오른쪽 끝에 있어도 성공해버렸다(리듬 게임이 아니라 단순 퀴즈가 됨).
+  // 구간 폭은 전체 이동 거리의 40%를 기본으로 하되, 레벨이 올라 음표가
+  // 빨라져도 최소 0.55초는 확보되도록 시간 기준 하한을 같이 둔다.
+  const HIT_ZONE_RATIO = 0.40;
+  const HIT_ZONE_MIN_SEC = 0.55;
+  function hitZoneFraction(){
+    return Math.min(1, Math.max(HIT_ZONE_RATIO, HIT_ZONE_MIN_SEC / state.travelTime));
+  }
+  function hitZoneX(){
+    return geo.judgeX + (geo.spawnX - geo.judgeX) * hitZoneFraction();
+  }
+  function inHitZone(n){
+    return !!n && n.x <= hitZoneX();
+  }
 
   if (window.ResizeObserver) new ResizeObserver(() => { layout(); }).observe(wrap);
   window.addEventListener('resize', layout);
@@ -784,6 +819,13 @@
   function answer(idx, btn){
     if(state.screen !== 'playing' || !state.current || state.current.resolved) return;
     const n = state.current;
+    // 판정 구간 밖(아직 음표가 멀리 있음)에서 누른 건 정답이든 오답이든 무효 —
+    // 생명을 깎지 않고 그냥 무시하면서 조금 더 기다리라고 알려준다.
+    if(!inHitZone(n)){
+      showToast('아직이에요! 음표가 파란 구간에 오면 눌러요 ⏳', 700);
+      flashBtn(btn, 'earlyFlash');
+      return;
+    }
     if(idx === n.idx){
       n.resolved = true;
       n.flashFrames = 12; n.flashType = 'correct';
@@ -927,25 +969,44 @@
     ctx.fillStyle = '#FFC857';
     ctx.font = `${geo.clefSize}px Georgia, 'Times New Roman', serif`;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText('𝄞', W * 0.015, geo.bottomLine + geo.lineGap * 0.55);
+    ctx.fillText('𝄞', geo.clefX, geo.bottomLine + geo.lineGap * 0.55);
 
-    // 판정선 — 선 뒤에 은은한 청록 빛을 깔아서 "여기 닿기 전에"가 더 잘 보인다
+    // 판정 구간 — 음표가 이 띠 안에 들어와야 버튼이 정답으로 인정된다.
+    // 음표가 들어와 있으면(armed) 띠가 밝아지고 "지금!"이 뜬다.
     ctx.save();
     const top = geo.bottomLine - geo.lineGap * 5.4, bottom = geo.bottomLine + geo.lineGap * 1.6;
-    const glowW = Math.max(18, geo.lineGap * 1.4);
-    const grad = ctx.createLinearGradient(geo.judgeX - glowW, 0, geo.judgeX + glowW, 0);
-    grad.addColorStop(0, 'rgba(78,205,196,0)');
-    grad.addColorStop(0.5, 'rgba(78,205,196,.16)');
-    grad.addColorStop(1, 'rgba(78,205,196,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(geo.judgeX - glowW, top, glowW * 2, bottom - top);
-    ctx.strokeStyle = 'rgba(78,205,196,.75)';
+    const zx = hitZoneX();
+    const armed = !!state.current && !state.current.resolved && state.current.x <= zx;
+    const zoneGrad = ctx.createLinearGradient(geo.judgeX, 0, zx, 0);
+    zoneGrad.addColorStop(0, armed ? 'rgba(78,205,196,.26)' : 'rgba(78,205,196,.11)');
+    zoneGrad.addColorStop(1, 'rgba(78,205,196,0)');
+    ctx.fillStyle = zoneGrad;
+    ctx.fillRect(geo.judgeX, top, zx - geo.judgeX, bottom - top);
+    // 구간이 끝나는 지점(여기부터 누를 수 있다)을 옅은 점선으로
+    ctx.strokeStyle = armed ? 'rgba(78,205,196,.55)' : 'rgba(78,205,196,.3)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 7]);
+    ctx.beginPath();
+    ctx.moveTo(zx, top);
+    ctx.lineTo(zx, bottom);
+    ctx.stroke();
+    // 판정선(구간의 왼쪽 끝) — 여기 닿으면 놓친 것
+    ctx.strokeStyle = 'rgba(78,205,196,.85)';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
     ctx.moveTo(geo.judgeX, top);
     ctx.lineTo(geo.judgeX, bottom);
     ctx.stroke();
+    if(armed){
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#4ECDC4';
+      ctx.font = `800 ${Math.min(20, Math.max(11, geo.lineGap * 0.7))}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // 오선 위쪽(음표가 지나가지 않는 여백)에 띄운다 — 아래에 두면 낮은 음
+      // 음표(도·레)와 정확히 겹쳐서 둘 다 안 보였다.
+      ctx.fillText('지금!', (geo.judgeX + zx) / 2, top + geo.lineGap * 0.5);
+    }
     ctx.restore();
   }
 
@@ -989,6 +1050,17 @@
     ctx.ellipse(0, 0, geo.noteRx, geo.noteRy, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+
+    // 판정 구간에 들어온 음표는 청록 링을 둘러서 "지금 누를 수 있다"를 알린다
+    if(!n.resolved && inHitZone(n)){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(78,205,196,.9)';
+      ctx.lineWidth = Math.max(1.5, geo.lineGap * 0.09);
+      ctx.beginPath();
+      ctx.arc(n.x, y, geo.noteRx * 1.95, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if(label){
       ctx.save();
