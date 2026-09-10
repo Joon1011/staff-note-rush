@@ -681,7 +681,7 @@
       lives:3, misses:0,
       stageIndex:0,
       tickIndex:-LEAD_IN_TICKS - 1,
-      pendingOnset:false, pendingResolved:true,
+      pendingOnset:false, pendingResolved:true, pendingOnsetDeadlineTick:0,
       lastCountdownBeat:null,
     };
     beatMs = beatMsForStage(0);
@@ -875,10 +875,15 @@
     }
   }
 
+  // 온셋 시작 틱부터 최대 이만큼 판정을 기다려준다 — 8분음표 연속처럼 다음
+  // 온셋이 더 일찍 오면 onTick에서 note.ticks로 그 전까지로 알아서 줄어든다.
+  const HIT_WINDOW_TICKS = 2;
+
   function onTick(){
-    // 이전 틱에서 눌러야 했는데 못 누른 onset을 판정.
-    if(state.pendingOnset && !state.pendingResolved){
+    // 이전 온셋의 판정 유예 시간이 끝났는데 아직 못 맞췄으면 여기서 놓친 것으로 처리.
+    if(state.pendingOnset && !state.pendingResolved && state.tickIndex >= state.pendingOnsetDeadlineTick){
       registerFalseShot(50);
+      state.pendingOnset = false;
     }
     if(state.screen !== 'playing') return; // 방금 gameOver로 바뀌었을 수 있음
 
@@ -897,8 +902,11 @@
     if(state.tickIndex >= 0){
       const { elIdx, offset, info } = currentElementAndOffset(state.tickIndex);
       updateStripHighlight(elIdx, info);
-      state.pendingOnset = info.onset && offset === 0;
-      state.pendingResolved = !state.pendingOnset;
+      if(info.onset && offset === 0){
+        state.pendingOnset = true;
+        state.pendingResolved = false;
+        state.pendingOnsetDeadlineTick = state.tickIndex + Math.min(HIT_WINDOW_TICKS, info.ticks);
+      }
       if(state.tickIndex === 0) showCountdown('시작!', true);
     } else {
       state.pendingOnset = false;
