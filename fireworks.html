@@ -279,57 +279,9 @@
   .rankScore{ color:var(--teal); font-weight:700; flex-shrink:0; }
   .rankEmpty{ color:var(--text-muted); text-align:center; list-style:none; padding:8px; }
 
-  .authOverlay{
-    position:fixed; inset:0; z-index:100;
-    background:var(--bg-deep);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:14px; padding:24px; text-align:center;
-  }
-  .authOverlay h2{ color:var(--gold); margin:0; font-size:clamp(1.1rem, 4.6vw, 1.4rem); }
-  .authForm{ display:flex; flex-direction:column; gap:10px; width:min(260px, 80vw); }
-  .authInput{
-    font-family:'Space Mono', monospace; font-size:1rem;
-    background:#150e29; border:2px solid #4a3a80; border-radius:10px;
-    color:var(--text-primary); padding:10px 12px; text-align:center;
-  }
-  .authInput:focus{ outline:none; border-color:var(--teal); }
-  .authError{ color:var(--coral); font-size:.85rem; min-height:1.2em; }
 </style>
 </head>
 <body>
-
-<div class="authOverlay" id="authGate">
-  <h2>🔒 관리자 인증</h2>
-  <form class="authForm" id="authForm" autocomplete="off">
-    <input type="text" class="authInput" id="authId" placeholder="ID" autocomplete="off">
-    <input type="password" class="authInput" id="authPw" placeholder="Password" autocomplete="new-password">
-    <button type="submit" class="primaryBtn">입장하기</button>
-    <div class="authError" id="authError"></div>
-  </form>
-</div>
-<script>
-(() => {
-  "use strict";
-  // 페이지를 새로 열 때마다 다시 인증하도록 저장 없이 매번 새 세션으로 취급한다.
-  const ADMIN_ID = "lmj1906";
-  const ADMIN_PW = "2alswl";
-  const gate = document.getElementById('authGate');
-  const form = document.getElementById('authForm');
-  const idInput = document.getElementById('authId');
-  const pwInput = document.getElementById('authPw');
-  const errEl = document.getElementById('authError');
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    if(idInput.value.trim() === ADMIN_ID && pwInput.value === ADMIN_PW){
-      gate.remove();
-    } else {
-      errEl.textContent = 'ID 또는 비밀번호가 올바르지 않습니다.';
-      pwInput.value = '';
-      pwInput.focus();
-    }
-  });
-})();
-</script>
 
 <div class="stage" id="stage">
   <div class="titlebar">
