@@ -464,7 +464,37 @@
   }
 
   // ---------- 사운드 ----------
+  // 정답/오답 효과음은 오실레이터로 합성한 "삐빅" 소리 대신 실제 무료
+  // 라이선스 효과음 샘플을 쓴다(Mixkit 무료 SFX, 별도 저작자 표시 불필요 —
+  // sounds/ 폴더 참고). 못 불러온 경우에만 기존 합성음으로 조용히 대체된다.
+  // 박자 리듬(playRiffNote)은 실제 멜로디라 그대로 합성음 유지.
+  const SOUND_FILES = { catch: 'sounds/catch.mp3', buzzer: 'sounds/buzzer.mp3' };
+  const soundBuffers = {};
   let audioCtx = null;
+  function loadSounds(){
+    if(!audioCtx || typeof fetch !== 'function') return;
+    Object.entries(SOUND_FILES).forEach(([name, url]) => {
+      if(soundBuffers[name]) return;
+      try {
+        fetch(url)
+          .then(r => r.arrayBuffer())
+          .then(buf => audioCtx.decodeAudioData(buf))
+          .then(decoded => { soundBuffers[name] = decoded; })
+          .catch(() => {}); // 네트워크 실패/디코딩 실패 시 조용히 무시 -> 합성음 폴백
+      } catch(e) {} // fetch 자체가 없거나 동기적으로 던지는 환경 방어
+    });
+  }
+  function playSample(name, gainValue){
+    const buffer = soundBuffers[name];
+    if(!audioCtx || !buffer) return false;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.value = gainValue;
+    src.connect(g).connect(audioCtx.destination);
+    src.start();
+    return true;
+  }
   function initAudio(){
     if(!audioCtx){
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -476,6 +506,7 @@
     // resume이 늦게 끝나도 그 소리 자체가 통째로 씹히지 않고 재생된다
     // ("아무 소리도 안 들린다"는 문제의 실제 원인).
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    loadSounds();
   }
 
   // 그냥 딱딱거리는 메트로놈 대신, 신나는 멜로디+베이스 루프를 박자마다
@@ -504,6 +535,7 @@
     o2.start(t0); o2.stop(t0 + 0.24);
   }
   function hitSound(){
+    if(playSample('catch', 0.7)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -517,6 +549,7 @@
   }
   function buzz(){
     if(navigator.vibrate) navigator.vibrate(60);
+    if(playSample('buzzer', 0.5)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();

@@ -498,15 +498,51 @@
   closeRankBtn.addEventListener('click', closeRanking);
 
   // ---------- 사운드 ----------
+  // 오실레이터로 합성한 "삐빅" 소리 대신 실제 무료 라이선스 효과음 샘플을 쓴다
+  // (Mixkit 무료 SFX, 별도 저작자 표시 불필요 — sounds/ 폴더 참고). 파일을 못
+  // 불러온 경우(네트워크 문제 등)에만 기존 합성음으로 조용히 대체된다.
+  const SOUND_FILES = {
+    tick: 'sounds/tick.mp3',
+    whoosh: 'sounds/whoosh.mp3',
+    explosion: 'sounds/explosion.mp3',
+    buzzer: 'sounds/buzzer.mp3',
+  };
+  const soundBuffers = {};
   let audioCtx = null;
+  function loadSounds(){
+    if(!audioCtx || typeof fetch !== 'function') return;
+    Object.entries(SOUND_FILES).forEach(([name, url]) => {
+      if(soundBuffers[name]) return;
+      try {
+        fetch(url)
+          .then(r => r.arrayBuffer())
+          .then(buf => audioCtx.decodeAudioData(buf))
+          .then(decoded => { soundBuffers[name] = decoded; })
+          .catch(() => {}); // 실패해도 조용히 무시 — 아래 합성음 폴백이 대신한다
+      } catch(e) {} // fetch 자체가 없거나 동기적으로 던지는 환경 방어
+    });
+  }
+  function playSample(name, gainValue){
+    const buffer = soundBuffers[name];
+    if(!audioCtx || !buffer) return false;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.value = gainValue;
+    src.connect(g).connect(audioCtx.destination);
+    src.start();
+    return true;
+  }
   function initAudio(){
     if(!audioCtx){
       const AC = window.AudioContext || window.webkitAudioContext;
       if(AC) audioCtx = new AC();
     }
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    loadSounds();
   }
   function tickClick(){
+    if(playSample('tick', 0.35)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -518,6 +554,7 @@
     o.start(t0); o.stop(t0 + 0.05);
   }
   function launchSound(){
+    if(playSample('whoosh', 0.6)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -529,8 +566,23 @@
     o.connect(g).connect(audioCtx.destination);
     o.start(t0); o.stop(t0 + 0.32);
   }
+  function explosionSound(){
+    if(playSample('explosion', 0.7)) return;
+    // 합성음 폴백 — 낮은 톤에서 떨어지는 간단한 "펑" 느낌
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(180, t0);
+    o.frequency.exponentialRampToValueAtTime(40, t0 + 0.35);
+    g.gain.setValueAtTime(0.3, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + 0.42);
+  }
   function buzz(){
     if(navigator.vibrate) navigator.vibrate(60);
+    if(playSample('buzzer', 0.5)) return;
     if(!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -658,6 +710,7 @@
   function burst(xPct, topPct, isCrackle){
     const palette = SPARK_PALETTES[Math.floor(Math.random() * SPARK_PALETTES.length)];
     if(!isCrackle){
+      explosionSound();
       const flash = document.createElement('div');
       flash.className = 'flash';
       flash.style.left = xPct + '%';
