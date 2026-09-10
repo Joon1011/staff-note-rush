@@ -129,6 +129,17 @@
     font-family:'Space Mono',monospace; font-size:clamp(.6rem, 2.4vw, .72rem);
     color:var(--text-muted); pointer-events:none; white-space:nowrap;
   }
+  .countdown{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2', sans-serif; font-weight:800; color:var(--gold);
+    font-size:clamp(3rem, 18vw, 5.5rem);
+    text-shadow:0 4px 14px rgba(0,0,0,.55);
+    pointer-events:none; opacity:0; transform:scale(.6);
+    transition:opacity .12s ease-out, transform .12s ease-out;
+    z-index:4;
+  }
+  .countdown.show{ opacity:1; transform:scale(1); }
+  .countdown.go{ color:var(--teal); font-size:clamp(2.2rem, 12vw, 3.6rem); }
   .firework{
     position:absolute; bottom:6%; width:5px; height:5px; border-radius:50%;
     background:var(--gold); transform:translateX(-50%);
@@ -301,6 +312,7 @@
   <div class="arena" id="arena">
     <div class="arenaHint">탭해서 발사!</div>
     <div class="toast" id="toast"></div>
+    <div class="countdown" id="countdownEl"></div>
   </div>
 
   <div class="overlay" id="startOverlay">
@@ -381,7 +393,7 @@
     H: { ticks:4, onset:true,  label:'2분음표', beat:'2박',  symbol:'𝅗𝅥' },
     R: { ticks:2, onset:false, label:'쉼표',   beat:'쉬기', symbol:'𝄽' },
   };
-  const LEAD_IN_TICKS = 4; // 2박 예비 박자
+  const LEAD_IN_TICKS = 6; // 3박 예비 박자("3,2,1" 카운트다운으로 보여줌)
 
   // 스테이지가 올라갈수록 더 복잡한 리듬 요소가 추가되고 박자도 빨라진다.
   const STAGES = [
@@ -628,6 +640,7 @@
       stageIndex:0,
       tickIndex:-LEAD_IN_TICKS,
       pendingOnset:false, pendingResolved:true,
+      lastCountdownBeat:null,
     };
     beatMs = beatMsForStage(0);
     tickMs = beatMs / 2;
@@ -657,6 +670,21 @@
   function pulseBeatDot(){
     beatDot.classList.add('pulse');
     setTimeout(() => beatDot.classList.remove('pulse'), 110);
+  }
+
+  // 시작하기를 누른 직후 언제부터 진짜 시작인지 헷갈린다는 피드백을 반영 —
+  // 예비 박자 동안 "3,2,1"을 큼직하게 보여주고, 진짜 첫 박이 오면 "시작!"을
+  // 한 번 더 강조해서 정확히 그 순간부터 쳐야 한다는 걸 분명히 알려준다.
+  let countdownTimer = null;
+  function showCountdown(text, isGo){
+    const c = el('countdownEl');
+    c.textContent = text;
+    c.classList.toggle('go', !!isGo);
+    c.classList.remove('show');
+    void c.offsetWidth; // 강제 리플로우 — 같은 숫자가 연달아 와도 트랜지션이 다시 재생되게
+    c.classList.add('show');
+    clearTimeout(countdownTimer);
+    countdownTimer = setTimeout(() => c.classList.remove('show'), isGo ? 550 : 700);
   }
 
   // ---------- 리듬 스트립(현재 스테이지 패턴 한 마디를 고정으로 보여줌) ----------
@@ -775,6 +803,13 @@
 
   function launch(xPct){
     if(state.screen !== 'playing'){ return; }
+    // 카운트다운(예비 박자)이 아직 끝나기 전에 탭한 경우 — 곡이 진짜
+    // 시작하기 전이라 벌칙 없이 그냥 무시한다. 예전엔 이때 탭하면 바로
+    // 생명이 깎여서 "왜 시작하자마자 실수 처리되지?"로 혼란스러웠다.
+    if(state.tickIndex < 0){
+      showToast('아직이에요, 조금만 기다려요 ⏳', 500);
+      return;
+    }
     if(state.pendingOnset && !state.pendingResolved){
       registerHitOnset(xPct);
     } else {
@@ -831,9 +866,18 @@
       updateStripHighlight(elIdx, info);
       state.pendingOnset = info.onset && offset === 0;
       state.pendingResolved = !state.pendingOnset;
+      if(state.tickIndex === 0) showCountdown('시작!', true);
     } else {
       state.pendingOnset = false;
       state.pendingResolved = true;
+      rhythmLabelEl.textContent = '🎯 준비하세요...';
+      // 숫자가 바뀔 때만 다시 띄운다 — 매 틱마다 다시 띄우면 "3...2...1"이
+      // 아니라 훨씬 잘게 깜빡여 버린다.
+      const beatsLeft = Math.ceil(-state.tickIndex / 2);
+      if(beatsLeft !== state.lastCountdownBeat){
+        state.lastCountdownBeat = beatsLeft;
+        showCountdown(String(beatsLeft));
+      }
     }
   }
 
@@ -887,6 +931,7 @@
     state.tickIndex = -LEAD_IN_TICKS;
     state.pendingOnset = false;
     state.pendingResolved = true;
+    state.lastCountdownBeat = null;
     startOverlay.classList.add('hidden');
     overOverlay.classList.add('hidden');
     winOverlay.classList.add('hidden');
