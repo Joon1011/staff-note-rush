@@ -106,10 +106,12 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   background:color-mix(in srgb,var(--c) 10%,#fff);
   font-family:'Gaegu',cursive;font-weight:700;
   font-size:clamp(.85rem,3.4vw,1.1rem);color:var(--c);
-  display:flex;align-items:center;justify-content:center;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   height:clamp(46px,9vh,64px);
   transition:transform .08s,background .12s,box-shadow .12s;
 }
+.cell .cellNote{font-size:.85em;line-height:1;opacity:.85;}
+.cell .cellSyll{line-height:1;}
 .cell.hit{background:var(--c);color:#fff;transform:scale(1.06);
   box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 25%,transparent);}
 .cell.ok{background:color-mix(in srgb,var(--c) 55%,#fff);color:#fff;}
@@ -343,12 +345,13 @@ function glyph(p){
 /* ========== 유니코드 음표 기호 ========== */
 const NOTE_CHAR = { 1:'\u{1D15F}', 0.5:'\u{1D160}', 0.25:'\u{1D161}' }; // 4분/8분/16분음표
 const AUG_DOT = '\u{1D16D}'; // 붙임점(점음표) — 앞 음표 기호와 결합
+function noteCharFor(dur){
+  if(Math.abs(dur - 0.75) < 0.001) return NOTE_CHAR[0.5] + AUG_DOT; // 점8분음표
+  const key = [1, 0.5, 0.25].find(k => Math.abs(dur - k) < 0.001);
+  return NOTE_CHAR[key] || NOTE_CHAR[0.5]; // 셋잇단음표는 8분음표 기호 재사용
+}
 function noteUnicode(p){
-  const chars = p.s.map(([, dur]) => {
-    if(Math.abs(dur - 0.75) < 0.001) return NOTE_CHAR[0.5] + AUG_DOT; // 점8분음표
-    const key = [1, 0.5, 0.25].find(k => Math.abs(dur - k) < 0.001);
-    return NOTE_CHAR[key] || NOTE_CHAR[0.5]; // 셋잇단음표는 8분음표 기호 재사용
-  });
+  const chars = p.s.map(([, dur]) => noteCharFor(dur));
   return chars.join(' ') + (p.trip ? '³' : '');
 }
 
@@ -414,7 +417,7 @@ function renderMeasure(mi){
       const c=document.createElement('div');
       c.className='cell'; c.style.setProperty('--c',p.c);
       c.style.setProperty('--w', s[1]);
-      c.textContent=s[0];
+      c.innerHTML = `<span class="cellNote">${noteCharFor(s[1])}</span><span class="cellSyll">${s[0]}</span>`;
       c.dataset.key = mi+'-'+bi+'-'+si;
       d.appendChild(c);
     });
