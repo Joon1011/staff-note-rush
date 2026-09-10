@@ -338,6 +338,22 @@
   ];
   const MIN_BEAT_MS = 260;
 
+  // BPM에 대응하는 이탈리아어 빠르기말(음악 용어) — 클래식 악보에서 쓰는
+  // 표준 구간표 그대로.
+  const TEMPO_TERMS = [
+    [0, 19, 'Larghissimo'], [20, 39, 'Grave'], [40, 44, 'Lento'], [45, 49, 'Largo'],
+    [50, 54, 'Larghetto'], [55, 64, 'Adagio'], [65, 68, 'Adagietto'], [69, 72, 'Andante moderato'],
+    [73, 77, 'Andante'], [78, 82, 'Andantino'], [83, 85, 'Marcia moderato'], [86, 97, 'Moderato'],
+    [98, 109, 'Allegretto'], [110, 131, 'Allegro'], [132, 139, 'Vivace'], [140, 149, 'Vivacissimo'],
+    [150, 167, 'Allegrissimo'], [168, 177, 'Presto'], [178, Infinity, 'Prestissimo'],
+  ];
+  function tempoTermForBpm(bpm){
+    for(const [lo, hi, term] of TEMPO_TERMS){
+      if(bpm >= lo && bpm <= hi) return term;
+    }
+    return '';
+  }
+
   const el = id => document.getElementById(id);
   const livesEl = el('lives'), comboEl = el('comboLabel'), scoreEl = el('scoreLabel');
   const beatDot = el('beatDot'), beatInfoEl = el('beatInfo');
@@ -531,9 +547,10 @@
 
   function updateBeatInfo(){
     const bpm = Math.round(60000 / beatMs);
+    const term = tempoTermForBpm(bpm);
     const beatNum = Math.max(state.beatIndex, 0);
     beatInfoEl.textContent =
-      `BPM ${bpm} · 스테이지 ${state.stageIndex + 1}/${STAGES.length} · ${beatNum}/${state.totalBeats}박자`;
+      `BPM ${bpm} (${term}) · 스테이지 ${state.stageIndex + 1}/${STAGES.length} · ${beatNum}/${state.totalBeats}박자`;
   }
 
   // score/maxCombo 등은 스테이지를 넘어가도 계속 누적되는 세션 전체 값이고,
@@ -602,8 +619,26 @@
     if(i === state.moleHole){
       registerHit(holeEl);
     } else {
-      holeEl.classList.add('shake');
-      setTimeout(() => holeEl.classList.remove('shake'), 220);
+      registerWrongTap(holeEl);
+    }
+  }
+
+  // 엉뚱한 구멍을 때리면 생명이 깎인다 — 이게 없으면 4칸을 그냥 다 눌러버려도
+  // 정답 구멍이 그 안에 포함되니 매번 성공해버리는 문제가 있었다("4칸을 막
+  // 터치하고 있으면 스테이지가 성공하는" 버그 리포트).
+  function registerWrongTap(holeEl){
+    state.combo = 0;
+    state.lives--;
+    state.misses++;
+    buzz();
+    holeEl.classList.add('shake');
+    setTimeout(() => holeEl.classList.remove('shake'), 220);
+    renderHUD();
+    if(state.lives <= 0){
+      state.moleResolved = true;
+      hideMole();
+      clearInterval(beatTimer);
+      gameOver();
     }
   }
 
