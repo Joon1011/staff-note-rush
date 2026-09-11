@@ -129,40 +129,87 @@
   }
   .toast.show{opacity:1; transform:translateX(-50%) scale(1);}
 
+  /* ---------- 피아노 건반 ---------- */
   .controls{
     flex-shrink:0;
-    display:grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap:7px;
-  }
-  /* 넓은 화면(태블릿 가로/데스크톱)에서는 한 줄 8칸 */
-  @media (min-width:620px){
-    .controls{grid-template-columns:repeat(8, 1fr);}
-  }
-  .noteBtn{
-    font-family:'Baloo 2', sans-serif; font-weight:700;
-    font-size:clamp(1rem, 4.4vw, 1.25rem);
-    color:var(--bg-deep); background:var(--teal);
-    border:none; border-bottom:4px solid #2b8f88; border-radius:12px;
-    min-height:clamp(46px, 8.5vh, 66px);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    line-height:1.05; cursor:pointer;
-    transition:transform .07s, background .1s;
+    position:relative;
+    height:clamp(86px, 16vh, 150px);
+    background:#140d2c;
+    border:2px solid #3d2f70;
+    border-radius:8px 8px 10px 10px;
+    padding:5px 5px 0;
+    box-shadow:inset 0 4px 12px rgba(0,0,0,.55);
     touch-action:manipulation;
   }
-  .noteBtn small{
-    font-family:'Space Mono',monospace;
-    font-size:.52em; opacity:.65; margin-top:1px;
+  /* 건반 위쪽의 펠트 라인 — 진짜 피아노처럼 보이게 하는 얇은 붉은 띠 */
+  .controls::before{
+    content:''; position:absolute; left:5px; right:5px; top:0; height:4px;
+    background:linear-gradient(180deg, #8d3b52, #5d2438); border-radius:2px; z-index:4;
   }
-  .noteBtn.pressed{transform:translateY(3px); border-bottom-width:1px;}
-  .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
-  .noteBtn.correctFlash{background:var(--gold);}
-  .noteBtn.wrongFlash{background:var(--coral); color:#3a0f0f;}
+  .whiteRow{ display:flex; height:100%; }
+  .blackRow{ position:absolute; left:5px; right:5px; top:5px; height:61%; pointer-events:none; z-index:3; }
+
+  .noteBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    cursor:pointer; touch-action:manipulation; padding:0;
+  }
+  .noteBtn.white{
+    position:relative; z-index:1;
+    flex:1 1 0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    padding-bottom:7px;
+    background:linear-gradient(180deg, #FFFFFF 0%, #F3EEFF 70%, #DAD0F2 100%);
+    color:#2a1d05;
+    border:none; border-bottom:5px solid #8b7ab8;
+    border-radius:0 0 7px 7px;
+    font-size:clamp(.82rem, 3.4vw, 1.1rem); line-height:1.05;
+    transition:transform .07s, background .1s, box-shadow .1s;
+  }
+  /* 건반 사이 경계선 — border-right로 그리면 그 1px이 건반 폭을 갉아먹어서
+     흰 건반 경계가 조금씩 밀리고, 그 위에 %로 얹은 검은 건반이 어긋난다.
+     레이아웃 폭을 차지하지 않는 가상 요소로 그린다. */
+  .noteBtn.white::after{
+    content:''; position:absolute; top:0; right:0; bottom:0; width:1px;
+    background:#b3a6dd; pointer-events:none;
+  }
+  .noteBtn.white:last-child::after{ display:none; }
+  .noteBtn.white small{
+    font-family:'Space Mono',monospace;
+    font-size:.56em; opacity:.5; margin-top:1px;
+  }
+  .noteBtn.white.pressed{
+    background:linear-gradient(180deg, #EDE6FF 0%, #CFC3EE 100%);
+    border-bottom-width:2px; transform:translateY(3px);
+  }
+  .noteBtn.black{
+    position:absolute; top:0; height:100%;
+    background:linear-gradient(180deg, #4a3d7a 0%, #1d1440 62%, #0c0720 100%);
+    border:none; border-bottom:4px solid #080513;
+    border-radius:0 0 5px 5px;
+    box-shadow:0 4px 7px rgba(0,0,0,.6);
+    pointer-events:auto;
+  }
+  .noteBtn.black.pressed{
+    background:linear-gradient(180deg, #5d4d96 0%, #2a1f55 100%);
+    border-bottom-width:1px; transform:translateY(3px);
+  }
+  .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:-3px;}
+
+  .noteBtn.white.correctFlash{ background:linear-gradient(180deg, #FFEFC4 0%, var(--gold) 100%); }
+  .noteBtn.white.wrongFlash{ background:linear-gradient(180deg, #FFC9C9 0%, var(--coral) 100%); color:#3a0f0f; }
   /* 판정 구간에 들어오기 전에 누른 경우 — 벌칙은 없고 "아직"이라는 표시만 */
-  .noteBtn.earlyFlash{background:#5a4a95; color:var(--text-muted); animation:earlyNudge .22s ease-out;}
+  .noteBtn.white.earlyFlash{
+    background:linear-gradient(180deg, #DED6F7 0%, #ADA0D6 100%); color:#4a3a80;
+    animation:earlyNudge .22s ease-out;
+  }
   @keyframes earlyNudge{ 0%,100%{transform:translateX(0);} 35%{transform:translateX(-3px);} 70%{transform:translateX(3px);} }
-  /* 틀리거나 놓쳤을 때 정답 버튼이 잠깐 금색 테두리로 깜빡여서 "이게 정답이었어"를 알려준다 */
-  .noteBtn.hintFlash{ box-shadow:0 0 0 4px var(--gold), 0 0 16px rgba(255,200,87,.7); animation:hintBlink .6s ease-in-out; }
+  /* 틀리거나 놓쳤을 때 정답 건반이 잠깐 금색으로 깜빡여서 "이게 정답이었어"를 알려준다.
+     z-index를 올려야 위에 얹힌 검은 건반에 테두리가 가려지지 않는다. */
+  .noteBtn.hintFlash{
+    z-index:5;
+    box-shadow:0 0 0 3px var(--gold), 0 0 18px rgba(255,200,87,.8);
+    animation:hintBlink .6s ease-in-out;
+  }
   @keyframes hintBlink{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
 
   .overlay{
@@ -256,7 +303,7 @@
 <div class="stage" id="stage">
   <div class="titlebar">
     <h1>♪ 오선보 노트 러시</h1>
-    <p class="sub" id="subLabel">동요 계이름을 보고 알맞은 음을 눌러보세요</p>
+    <p class="sub" id="subLabel">오선보를 보고 알맞은 피아노 건반을 눌러보세요</p>
   </div>
 
   <div class="hud">
@@ -276,7 +323,7 @@
   <div class="overlay" id="startOverlay">
     <h2>오선보 노트 러시</h2>
     <p>음표가 오른쪽에서 흘러와 판정선 앞 <b>파란 구간</b>에 들어오면, 오선보 위
-    자리를 보고 알맞은 음이름 버튼을 눌러주세요. 너무 일찍 누르면 정답으로
+    자리를 보고 알맞은 <b>피아노 건반</b>을 눌러주세요. 너무 일찍 누르면 정답으로
     인정되지 않아요. 맞힐 때마다 그 음이 소리로 들려서 동요 멜로디를 그대로
     연주하게 돼요.</p>
     <div class="sectionLabel">동요 선택</div>
@@ -297,7 +344,7 @@
     <a class="linkBtn" href="./beat-mole.html">🔨 망치 박자 게임으로 가기</a>
     <a class="linkBtn" href="./fireworks.html">🎆 리듬 불꽃놀이로 가기</a>
     <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
-    <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요</div>
+    <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요<br>검은 건반은 이 동요들엔 나오지 않아요 🎹</div>
   </div>
 
   <div class="overlay hidden" id="overOverlay">
@@ -619,23 +666,33 @@
   previewBtn.addEventListener('touchstart', firePreview, {passive:false});
   previewBtn.addEventListener('click', firePreview);
 
-  // ---------- 버튼(터치 우선) ----------
-  const buttons = NOTES.map((n, i) => {
-    const b = document.createElement('button');
-    b.className = 'noteBtn';
-    b.type = 'button';
-    b.innerHTML = `${n.name}<small>${n.sub}</small>`;
-    b.setAttribute('aria-label', `${n.name} 음`);
+  // ---------- 피아노 건반(터치 우선) ----------
+  // 계이름 버튼 대신 실제 피아노 배열로 놓는다. 흰 건반 8개(도~높은 도)가
+  // 정답 후보이고, 검은 건반 5개는 "도는 검은 건반 두 개의 왼쪽" 같은 위치
+  // 감각을 함께 익히라고 그려 넣는다. 세 동요 어디에도 검은 건반 음은 없어서
+  // 검은 건반은 소리만 들려주고 정답 판정에는 관여하지 않는다 — 좁은 화면에서
+  // 스치듯 잘못 눌린 것까지 생명 감소로 벌주지 않기 위해서다.
+  const BLACK_KEYS = [
+    { after:0, name:'도♯', sub:'C#4', freq:277.18 },
+    { after:1, name:'레♯', sub:'D#4', freq:311.13 },
+    { after:3, name:'파♯', sub:'F#4', freq:369.99 },
+    { after:4, name:'솔♯', sub:'G#4', freq:415.30 },
+    { after:5, name:'라♯', sub:'A#4', freq:466.16 },
+  ];
+  const whiteRow = document.createElement('div'); whiteRow.className = 'whiteRow';
+  const blackRow = document.createElement('div'); blackRow.className = 'blackRow';
+  controls.append(whiteRow, blackRow);
 
-    // 터치 뒤에 브라우저가 흉내 내는 mousedown(고스트 클릭)만 걸러낸다.
-    // 예전엔 마우스 클릭도 이 가드를 켜버려서, 같은 음이 연달아 나오는 구간
-    // (곰 세 마리 첫 "도도도도도")에서 데스크톱 사용자가 350ms 안에 같은
-    // 버튼을 다시 누르면 두 번째 입력이 통째로 무시됐다.
+  // 터치 뒤에 브라우저가 흉내 내는 mousedown(고스트 클릭)만 걸러낸다.
+  // 예전엔 마우스 클릭도 이 가드를 켜버려서, 같은 음이 연달아 나오는 구간
+  // (곰 세 마리 첫 "도도도도도")에서 데스크톱 사용자가 350ms 안에 같은
+  // 건반을 다시 누르면 두 번째 입력이 통째로 무시됐다.
+  function wireKey(b, onPress){
     let touchGuard = false;
     const press = e => {
       e.preventDefault();
       b.classList.add('pressed');
-      answer(i, b);
+      onPress();
     };
     b.addEventListener('touchstart', e => {
       touchGuard = true;
@@ -648,11 +705,41 @@
     ['touchend','touchcancel','mouseup','mouseleave'].forEach(ev =>
       b.addEventListener(ev, release));
     b.addEventListener('keydown', e => {
-      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); answer(i, b); }
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onPress(); }
     });
-    controls.appendChild(b);
+  }
+
+  const buttons = NOTES.map((n, i) => {
+    const b = document.createElement('button');
+    b.className = 'noteBtn white';
+    b.type = 'button';
+    b.innerHTML = `${n.name}<small>${n.sub}</small>`;
+    b.setAttribute('aria-label', `${n.name} ${n.sub} 건반`);
+    wireKey(b, () => answer(i, b));
+    whiteRow.appendChild(b);
     return b;
   });
+
+  const WHITE_W = 100 / NOTES.length;   // 흰 건반 한 칸의 폭(%)
+  const BLACK_W = WHITE_W * 0.62;
+  BLACK_KEYS.forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'noteBtn black';
+    b.type = 'button';
+    b.style.width = BLACK_W + '%';
+    // 검은 건반은 이웃한 두 흰 건반의 경계 위에 걸터앉는다
+    b.style.left = ((k.after + 1) * WHITE_W - BLACK_W / 2) + '%';
+    b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
+    b.title = `${k.name} (${k.sub})`;
+    wireKey(b, () => pressBlackKey(k));
+    blackRow.appendChild(b);
+  });
+
+  function pressBlackKey(k){
+    initAudio();
+    tone(k.freq, 0.3);
+    if(state.screen === 'playing') showToast(`${k.name} — 이 노래엔 검은 건반이 없어요 🎹`, 700);
+  }
 
   window.addEventListener('keydown', e => {
     const k = parseInt(e.key, 10);
