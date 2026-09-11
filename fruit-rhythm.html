@@ -212,6 +212,17 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
   0%{transform:translateY(0) rotate(0);opacity:1;}
   100%{transform:translateY(110vh) rotate(var(--rot));opacity:.9;}
 }
+/* 게임 월드로 돌아가기 — 홈 화면 제목 위 */
+.backBtn{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:'Baloo 2',sans-serif;font-size:.82rem;
+  color:var(--dim);text-decoration:none;
+  border:1px solid var(--line);border-radius:999px;
+  padding:6px 13px;margin-bottom:10px;min-height:34px;
+  background:#fff;
+}
+.backBtn:hover,.backBtn:focus-visible{color:var(--ink);border-color:var(--dim);outline:none;}
+
 @media (prefers-reduced-motion: reduce){
   .confetti i{display:none;}
   .cell.hit,.cell.ok,.cell.miss,.verdict.show,.countdown.pop{animation:none;}
@@ -223,6 +234,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 
   <!-- 홈 -->
   <div class="view active" id="home">
+    <a class="backBtn" href="./index.html">&#8592; 게임 월드</a>
     <h1>🍊 과일 리듬 탭</h1>
     <p class="lede">과일 이름을 말하듯이 화면을 두드려 박자를 익혀요.<br>카드를 누르면 그 리듬만 따로 연습할 수 있어요.</p>
 

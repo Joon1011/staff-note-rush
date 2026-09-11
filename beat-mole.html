@@ -296,6 +296,25 @@
     font-size:clamp(.6rem, 2.4vw, .72rem); color:var(--text-muted);
   }
   .hidden{ display:none !important; }
+  /* 게임 월드로 돌아가는 버튼 — 제목 왼쪽에 붙는다 */
+  .backBtn{
+    /* 시작/결과 오버레이(z-index:10)가 제목줄을 덮으므로 그 위로 올려야
+       어느 화면에서든 왼쪽 위 ← 로 게임 월드에 돌아갈 수 있다. */
+    position:relative; z-index:11;
+    flex-shrink:0; align-self:center; display:grid; place-items:center;
+    width:34px; height:34px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.16);
+    color:var(--text-muted); font-size:1.05rem; line-height:1;
+    text-decoration:none; cursor:pointer;
+    transition:color .15s, border-color .15s;
+  }
+  .backBtn:hover, .backBtn:focus-visible{ color:var(--gold); border-color:var(--gold); outline:none; }
+  /* 뒤로 가기 버튼이 제목줄 폭을 가져가므로, 제목은 줄바꿈하지 않고
+     부제가 먼저 줄어들게 한다(부제는 이미 말줄임 처리돼 있다). */
+  .titlebar h1{ white-space:nowrap; flex-shrink:0; }
+  .titlebar .sub{ min-width:0; flex:1 1 auto; text-align:right; }
+
+
 
   .rankEntry{ display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:2px; width:100%; }
   .rankInput{
@@ -336,6 +355,7 @@
 
 <div class="stage" id="stage">
   <div class="titlebar">
+    <a class="backBtn" href="./index.html" aria-label="게임 월드로 돌아가기" title="게임 월드로 돌아가기">&#8592;</a>
     <h1>🔨 망치 박자 게임</h1>
     <p class="sub" id="subLabel">비트에 맞춰 튀어나오는 두더지를 망치로 콩!</p>
   </div>
@@ -370,9 +390,7 @@
       <button type="button" class="speedBtn" data-beat="440">빠르게</button>
     </div>
     <button class="primaryBtn" id="startBtn">시작하기</button>
-    <a class="linkBtn" href="./index.html">♪ 오선보 노트 러시로 가기</a>
-    <a class="linkBtn" href="./fireworks.html">🎆 리듬 불꽃놀이로 가기</a>
-    <a class="linkBtn" href="./fate-trace.html">🌀 운명 트레이싱으로 가기</a>
+    <a class="linkBtn" href="./index.html">🏠 다른 게임 고르기</a>
     <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
     <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요</div>
   </div>

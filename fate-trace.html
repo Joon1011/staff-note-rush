@@ -132,6 +132,35 @@
   .hint{ font-family:'Space Mono',monospace; font-size:clamp(.6rem, 2.4vw, .72rem); color:var(--text-muted); }
   .hidden{ display:none !important; }
 
+  /* 제목 왼쪽 뒤로 가기 — 대기 중엔 게임 월드로, 연주 중엔 그만두기로 바뀐다 */
+  .backBtn{
+    /* 시작/결과 오버레이(z-index:10)가 제목줄을 덮으므로 그 위로 올려야
+       어느 화면에서든 왼쪽 위 ← 로 게임 월드에 돌아갈 수 있다. */
+    position:relative; z-index:11;
+    flex-shrink:0; align-self:center; display:grid; place-items:center;
+    width:34px; height:34px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.16);
+    color:var(--text-muted); font-size:1.05rem; line-height:1;
+    text-decoration:none; cursor:pointer;
+    transition:color .15s, border-color .15s;
+  }
+  .backBtn:hover, .backBtn:focus-visible{ color:var(--gold); border-color:var(--gold); outline:none; }
+  /* 뒤로 가기 버튼이 제목줄 폭을 가져가므로, 제목은 줄바꿈하지 않고
+     부제가 먼저 줄어들게 한다(부제는 이미 말줄임 처리돼 있다). */
+  .titlebar h1{ white-space:nowrap; flex-shrink:0; }
+  .titlebar .sub{ min-width:0; flex:1 1 auto; text-align:right; }
+
+  .quitBtn{
+    position:relative; z-index:11;
+    flex-shrink:0; align-self:center;
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(.68rem, 2.6vw, .8rem); white-space:nowrap;
+    padding:7px 12px; min-height:34px; border-radius:10px;
+    background:rgba(255,107,107,.12); border:1px solid var(--coral);
+    color:var(--coral); cursor:pointer; line-height:1;
+  }
+  .quitBtn:active{ background:rgba(255,107,107,.24); }
+
   .rankEntry{ display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:2px; width:100%; }
   .rankInput{ font-family:'Baloo 2', sans-serif; font-size:clamp(.85rem, 3.4vw, 1rem); background:#0d0916; border:2px solid #4a3a80; border-radius:10px; color:var(--text-primary); padding:8px 12px; text-align:center; width:min(220px, 80vw); }
   .rankInput:focus{ outline:none; border-color:var(--teal); }
@@ -151,6 +180,8 @@
 
 <div class="stage" id="stage">
   <div class="titlebar">
+    <a class="backBtn" href="./index.html" id="worldBtn" aria-label="게임 월드로 돌아가기" title="게임 월드로 돌아가기">&#8592;</a>
+    <button type="button" class="quitBtn hidden" id="quitBtn">&#8592; 그만두기</button>
     <h1>🌀 운명 트레이싱</h1>
     <p class="sub" id="subLabel">음악을 따라 그려지는 선 끝을 손가락으로 쫓아가세요</p>
   </div>
@@ -186,10 +217,7 @@
     </div>
 
     <button class="primaryBtn" id="startBtn" disabled>시작하기</button>
-    <a class="linkBtn" href="./index.html">♪ 오선보 노트 러시로 가기</a>
-    <a class="linkBtn" href="./fireworks.html">🎆 리듬 불꽃놀이로 가기</a>
-    <a class="linkBtn" href="./beat-mole.html">🔨 망치 박자 게임으로 가기</a>
-    <a class="linkBtn" href="./fruit-rhythm.html">🍊 과일 리듬 탭으로 가기</a>
+    <a class="linkBtn" href="./index.html">🏠 다른 게임 고르기</a>
     <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
     <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요 · 가로 화면 추천</div>
   </div>
@@ -661,6 +689,7 @@
     const ac = ensureCtx();
     resetState();
     state.screen = 'playing';
+    showQuit(true);
     startOverlay.classList.add('hidden'); resultOverlay.classList.add('hidden'); rankOverlay.classList.add('hidden');
     layout();
     // 3·2·1 카운트다운 뒤 정확히 그 시각에 음원을 시작한다(오디오 시계 기준)
@@ -683,6 +712,7 @@
   function finish(){
     if(state.screen !== 'playing') return;
     state.screen = 'result';
+    showQuit(false);
     cancelAnimationFrame(rafId);
     stopAudio();
     if(state.sceneIdx >= 0){ state.done[scenes[state.sceneIdx].idx] = state.sceneActive > 0 ? state.sceneGood / state.sceneActive : 0; }
@@ -700,7 +730,15 @@
     rankForm.classList.remove('hidden'); rankSaved.classList.add('hidden'); rankName.value = '';
     resultOverlay.classList.remove('hidden');
   }
+  // 연주 중에는 페이지를 떠나는 링크 대신 "그만두기"를 보여준다 — 곡 도중에
+  // 실수로 눌러 페이지가 통째로 바뀌면 진행하던 연주가 통째로 날아간다.
+  function showQuit(playing){
+    el('worldBtn').classList.toggle('hidden', playing);
+    el('quitBtn').classList.toggle('hidden', !playing);
+  }
+
   function backToMenu(){
+    showQuit(false);
     cancelAnimationFrame(rafId);
     stopAudio();
     state.screen = 'start';
@@ -715,6 +753,8 @@
   el('againBtn').addEventListener('click', startGame);
   el('menuBtn').addEventListener('touchstart', e => { e.preventDefault(); backToMenu(); }, {passive:false});
   el('menuBtn').addEventListener('click', backToMenu);
+  el('quitBtn').addEventListener('touchstart', e => { e.preventDefault(); backToMenu(); }, {passive:false});
+  el('quitBtn').addEventListener('click', backToMenu);
 
   // 화면이 꺼지거나 앱이 내려가면 음악과 시계가 어긋나므로 중단하고 처음으로
   document.addEventListener('visibilitychange', () => {
