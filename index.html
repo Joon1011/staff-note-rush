@@ -6,8 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#17102B">
-<title>Piano Studio Game World</title>
-<meta name="description" content="피아노 스튜디오 음악 게임 모음 — 오선보, 박자, 리듬, 음표 길이를 놀면서 익혀요.">
+<title>오선보 노트 러시</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -19,205 +18,1193 @@
     --gold:#FFC857;
     --coral:#FF6B6B;
     --teal:#4ECDC4;
-    --neon:#F020F0;
-    --orange:#FF8A3D;
     --text-primary:#F4EFFF;
     --text-muted:#b3a6dd;
-    --pad: max(14px, env(safe-area-inset-left));
+    --pad: max(10px, env(safe-area-inset-left));
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; min-height:100%; overscroll-behavior-y:none;}
+  html,body{
+    margin:0; padding:0;
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
   body{
-    background:
-      radial-gradient(circle at 18% -10%, #33215e 0%, transparent 55%),
-      radial-gradient(circle at 85% 8%, #1e2f5c 0%, transparent 50%),
-      var(--bg-deep);
-    background-attachment:fixed;
+    background:radial-gradient(circle at 50% 0%, #241a46 0%, var(--bg-deep) 70%);
     color:var(--text-primary);
-    font-family:'Baloo 2', system-ui, -apple-system, sans-serif;
-    padding-block: max(20px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-bottom));
-    padding-inline: var(--pad);
+    font-family:'Baloo 2', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      var(--pad)
+      max(6px, env(safe-area-inset-bottom))
+      var(--pad);
+    -webkit-user-select:none; user-select:none;
   }
-  .wrap{max-width:940px; margin:0 auto;}
 
-  /* ---------- 머리말 ---------- */
-  header{text-align:center; margin-bottom:clamp(20px, 5vw, 34px);}
-  .mark{
-    font-family:'Space Mono', monospace; font-size:clamp(.6rem,2.6vw,.72rem);
-    letter-spacing:.22em; text-transform:uppercase; color:var(--teal);
-    margin:0 0 10px;
+  .stage{
+    width:100%;
+    max-width:820px;
+    height:100%;
+    max-height:900px;
+    background:linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border:2px solid #3d2f70;
+    border-radius:18px;
+    box-shadow:0 14px 40px rgba(0,0,0,.5);
+    padding:10px 12px 12px;
+    display:flex; flex-direction:column; gap:8px;
+    position:relative; overflow:hidden;
   }
+
+  .titlebar{display:flex; align-items:baseline; gap:8px; flex-shrink:0;}
   h1{
-    margin:0;
-    font-size:clamp(1.75rem, 7.5vw, 3.1rem);
-    font-weight:800; line-height:1.08; letter-spacing:-.01em;
-    background:linear-gradient(96deg, var(--gold) 12%, var(--coral) 52%, var(--neon) 92%);
-    -webkit-background-clip:text; background-clip:text;
-    color:transparent;
+    font-size:clamp(.95rem, 3.6vw, 1.35rem);
+    margin:0; color:var(--gold); letter-spacing:.01em;
   }
-  .tagline{
-    margin:12px auto 0; max-width:30em;
-    color:var(--text-muted); font-size:clamp(.86rem, 3.4vw, 1.02rem); line-height:1.5;
-  }
-  .keys{display:flex; justify-content:center; gap:1px; margin-top:18px; position:relative;}
-  .keys i{
-    display:block; width:clamp(13px,3.4vw,20px); height:clamp(34px,8vw,48px);
-    background:linear-gradient(#fdfbff, #ded3f2); border-radius:0 0 4px 4px;
-  }
-  .keys i.b{
-    /* position 없이는 z-index가 무시돼 뒤따라오는 흰 건반에 덮인다 */
-    position:relative; z-index:1;
-    width:clamp(8px,2.2vw,13px); height:clamp(21px,5vw,30px);
-    background:linear-gradient(#2a1f4a, #0c0817);
-    border-radius:0 0 3px 3px;
-    margin-inline:calc(clamp(8px,2.2vw,13px) / -2);
-  }
-
-  /* ---------- 게임 카드 ---------- */
-  .grid{
-    display:grid; gap:clamp(11px, 2.6vw, 16px);
-    grid-template-columns:1fr;
-  }
-  @media (min-width:600px){ .grid{grid-template-columns:repeat(2, 1fr);} }
-
-  .card{
-    position:relative; display:flex; align-items:center; gap:clamp(12px,3vw,18px);
-    background:linear-gradient(150deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
-    border:1px solid #372a63; border-left:5px solid var(--accent, var(--gold));
-    border-radius:14px; padding:clamp(14px,3.4vw,19px);
-    color:inherit; text-decoration:none;
-    transition:transform .16s ease-out, border-color .16s, box-shadow .16s;
-  }
-  .card:hover, .card:focus-visible{
-    transform:translateY(-3px);
-    border-color:var(--accent, var(--gold));
-    box-shadow:0 10px 26px rgba(0,0,0,.42);
-    outline:none;
-  }
-  .card:active{transform:translateY(0);}
-  .icon{
-    flex-shrink:0; display:grid; place-items:center;
-    width:clamp(46px,11vw,58px); height:clamp(46px,11vw,58px);
-    border-radius:13px; background:color-mix(in srgb, var(--accent) 16%, #0d0916);
-    font-size:clamp(1.5rem,5.6vw,1.95rem); line-height:1;
-  }
-  .body{min-width:0; flex:1;}
-  .name{
-    margin:0; font-size:clamp(1rem,4vw,1.2rem); font-weight:800;
-    color:var(--accent, var(--gold));
-  }
-  .learn{
-    margin:3px 0 0; font-size:clamp(.76rem,3vw,.87rem); line-height:1.45;
+  .sub{
     color:var(--text-muted);
+    font-size:clamp(.62rem, 2.2vw, .8rem);
+    margin:0;
   }
-  .meta{
-    margin:8px 0 0; display:flex; flex-wrap:wrap; gap:5px;
-    font-family:'Space Mono', monospace; font-size:clamp(.58rem,2.4vw,.68rem);
-  }
-  .meta span{
-    background:#0d0916; border:1px solid #372a63; border-radius:999px;
-    padding:2px 8px; color:var(--text-muted); white-space:nowrap;
-  }
-  .go{
-    flex-shrink:0; align-self:center;
-    font-size:1.35rem; color:var(--accent, var(--gold)); opacity:.5;
-    transition:opacity .16s, transform .16s;
-  }
-  .card:hover .go{opacity:1; transform:translateX(3px);}
+  /* 세로 화면 좁을 땐 부제 숨김 */
+  @media (max-height:620px){ .sub{display:none;} }
 
-  /* ---------- 꼬리말 ---------- */
-  footer{
-    margin-top:clamp(24px, 5vw, 36px); text-align:center;
-    color:var(--text-muted); font-size:clamp(.7rem,2.8vw,.8rem); line-height:1.7;
+  .hud{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'Space Mono', monospace;
+    font-size:clamp(.72rem, 2.8vw, .95rem);
+    flex-shrink:0;
   }
-  footer p{margin:0;}
-  .tip{
-    display:inline-block; margin-top:10px; padding:9px 15px;
-    background:var(--bg-panel); border:1px solid #372a63; border-radius:999px;
-    font-family:'Space Mono', monospace; font-size:clamp(.62rem,2.5vw,.71rem);
+  .lives{display:flex; gap:3px; font-size:1.15em;}
+  .heart{transition:opacity .25s, transform .25s; display:inline-block;}
+  .heart.off{opacity:.16; transform:scale(.8);}
+  .heart.lost{ animation:heartShake .5s ease-out; }
+  @keyframes heartShake{
+    0%{ transform:scale(1.4) rotate(0); opacity:1; }
+    25%{ transform:scale(1.3) rotate(-14deg); }
+    50%{ transform:scale(1.2) rotate(12deg); }
+    75%{ transform:scale(1) rotate(-6deg); }
+    100%{ transform:scale(.8) rotate(0); opacity:.16; }
+  }
+  .combo{color:var(--coral); font-weight:700; display:inline-block;}
+  .combo.bump{ animation:comboBump .28s ease-out; }
+  @keyframes comboBump{ 0%{transform:scale(1);} 40%{transform:scale(1.28);} 100%{transform:scale(1);} }
+  .score{color:var(--teal);}
+
+  /* 노래 진행 바 — 지금 몇 번째 음인지 숫자보다 한눈에 보인다 */
+  .progressBar{
+    height:5px; border-radius:3px; background:#150e29; border:1px solid #40315f;
+    overflow:hidden; flex-shrink:0;
+  }
+  .progressFill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--teal), var(--gold));
+    transition:width .15s linear;
   }
 
-  @media (prefers-reduced-motion: reduce){
-    .card, .go{transition:none;}
-    .card:hover, .card:focus-visible{transform:none;}
+  .canvasWrap{
+    position:relative;
+    flex:1 1 auto;
+    min-height:130px;
+    border-radius:12px;
+    overflow:hidden;
+    background:linear-gradient(180deg, #120b26 0%, #150e29 40%, #1b1236 100%);
+    border:1px solid #40315f;
+    transition:box-shadow .3s;
   }
+  .canvasWrap.missFlash{ box-shadow:inset 0 0 40px 8px rgba(255,107,107,.5); transition:none; }
+  .canvasWrap.goodFlash{ box-shadow:inset 0 0 30px 4px rgba(255,200,87,.25); transition:none; }
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
+  .toast{
+    position:absolute; top:8%; left:50%;
+    transform:translateX(-50%) scale(.85);
+    background:var(--gold); color:#2a1d05; font-weight:800;
+    padding:6px 16px; border-radius:999px;
+    font-size:clamp(.75rem, 3vw, .95rem);
+    opacity:0; pointer-events:none; z-index:5;
+    transition:opacity .22s, transform .22s;
+    white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) scale(1);}
+
+  /* ---------- 피아노 건반 ---------- */
+  .controls{
+    flex-shrink:0;
+    position:relative;
+    height:clamp(86px, 16vh, 150px);
+    background:#140d2c;
+    border:2px solid #3d2f70;
+    border-radius:8px 8px 10px 10px;
+    padding:5px 5px 0;
+    box-shadow:inset 0 4px 12px rgba(0,0,0,.55);
+    touch-action:manipulation;
+  }
+  /* 건반 위쪽의 펠트 라인 — 진짜 피아노처럼 보이게 하는 얇은 붉은 띠 */
+  .controls::before{
+    content:''; position:absolute; left:5px; right:5px; top:0; height:4px;
+    background:linear-gradient(180deg, #8d3b52, #5d2438); border-radius:2px; z-index:4;
+  }
+  .whiteRow{ display:flex; height:100%; }
+  .blackRow{ position:absolute; left:5px; right:5px; top:5px; height:61%; pointer-events:none; z-index:3; }
+
+  .noteBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    cursor:pointer; touch-action:manipulation; padding:0;
+  }
+  .noteBtn.white{
+    position:relative; z-index:1;
+    flex:1 1 0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    padding-bottom:7px;
+    background:linear-gradient(180deg, #FFFFFF 0%, #F3EEFF 70%, #DAD0F2 100%);
+    color:#2a1d05;
+    border:none; border-bottom:5px solid #8b7ab8;
+    border-radius:0 0 7px 7px;
+    font-size:clamp(.82rem, 3.4vw, 1.1rem); line-height:1.05;
+    transition:transform .07s, background .1s, box-shadow .1s;
+  }
+  /* 건반 사이 경계선 — border-right로 그리면 그 1px이 건반 폭을 갉아먹어서
+     흰 건반 경계가 조금씩 밀리고, 그 위에 %로 얹은 검은 건반이 어긋난다.
+     레이아웃 폭을 차지하지 않는 가상 요소로 그린다. */
+  .noteBtn.white::after{
+    content:''; position:absolute; top:0; right:0; bottom:0; width:1px;
+    background:#b3a6dd; pointer-events:none;
+  }
+  .noteBtn.white:last-child::after{ display:none; }
+  .noteBtn.white small{
+    font-family:'Space Mono',monospace;
+    font-size:.56em; opacity:.5; margin-top:1px;
+  }
+  .noteBtn.white.pressed{
+    background:linear-gradient(180deg, #EDE6FF 0%, #CFC3EE 100%);
+    border-bottom-width:2px; transform:translateY(3px);
+  }
+  .noteBtn.black{
+    position:absolute; top:0; height:100%;
+    background:linear-gradient(180deg, #4a3d7a 0%, #1d1440 62%, #0c0720 100%);
+    border:none; border-bottom:4px solid #080513;
+    border-radius:0 0 5px 5px;
+    box-shadow:0 4px 7px rgba(0,0,0,.6);
+    pointer-events:auto;
+  }
+  .noteBtn.black.pressed{
+    background:linear-gradient(180deg, #5d4d96 0%, #2a1f55 100%);
+    border-bottom-width:1px; transform:translateY(3px);
+  }
+  .noteBtn:focus-visible{outline:3px solid var(--gold); outline-offset:-3px;}
+
+  .noteBtn.white.correctFlash{ background:linear-gradient(180deg, #FFEFC4 0%, var(--gold) 100%); }
+  .noteBtn.white.wrongFlash{ background:linear-gradient(180deg, #FFC9C9 0%, var(--coral) 100%); color:#3a0f0f; }
+  /* 판정 구간에 들어오기 전에 누른 경우 — 벌칙은 없고 "아직"이라는 표시만 */
+  .noteBtn.white.earlyFlash{
+    background:linear-gradient(180deg, #DED6F7 0%, #ADA0D6 100%); color:#4a3a80;
+    animation:earlyNudge .22s ease-out;
+  }
+  @keyframes earlyNudge{ 0%,100%{transform:translateX(0);} 35%{transform:translateX(-3px);} 70%{transform:translateX(3px);} }
+  /* 틀리거나 놓쳤을 때 정답 건반이 잠깐 금색으로 깜빡여서 "이게 정답이었어"를 알려준다.
+     z-index를 올려야 위에 얹힌 검은 건반에 테두리가 가려지지 않는다. */
+  .noteBtn.hintFlash{
+    z-index:5;
+    box-shadow:0 0 0 3px var(--gold), 0 0 18px rgba(255,200,87,.8);
+    animation:hintBlink .6s ease-in-out;
+  }
+  @keyframes hintBlink{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
+
+  .overlay{
+    position:absolute; inset:0; z-index:10;
+    background:rgba(17,11,35,.96);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:22px; gap:12px;
+    overflow-y:auto;
+  }
+  .overlay.hidden{display:none;}
+  .overlay h2{font-size:clamp(1.15rem, 5.5vw, 1.7rem); margin:0; color:var(--gold);}
+  .overlay p{
+    color:var(--text-muted); max-width:36ch; line-height:1.65; margin:0;
+    font-size:clamp(.8rem, 3.2vw, .95rem);
+  }
+  .stars{font-size:clamp(1.8rem, 8vw, 2.4rem); letter-spacing:6px;}
+  .primaryBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:800;
+    font-size:clamp(.95rem, 4vw, 1.1rem);
+    background:var(--gold); color:#2a1d05;
+    border:none; border-bottom:4px solid #c99328;
+    padding:14px 36px; border-radius:14px; cursor:pointer;
+    min-height:52px; margin-top:4px;
+  }
+  .primaryBtn:active{transform:translateY(3px); border-bottom-width:1px;}
+  .sectionLabel{
+    font-family:'Space Mono',monospace; color:var(--text-muted);
+    font-size:clamp(.6rem, 2.4vw, .7rem); letter-spacing:.04em;
+    margin:2px 0 -6px;
+  }
+  .speedPick, .songPick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+  .speedBtn, .songBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(.8rem, 3.4vw, .95rem);
+    background:transparent; color:var(--text-muted);
+    border:2px solid #4a3a80; border-radius:999px;
+    padding:9px 18px; min-height:44px; cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .speedBtn.selected, .songBtn.selected{
+    background:var(--teal); color:var(--bg-deep); border-color:var(--teal);
+  }
+  .linkBtn{
+    background:none; border:none; color:var(--text-muted);
+    font-family:'Baloo 2', sans-serif; font-size:clamp(.75rem, 3vw, .85rem);
+    text-decoration:underline; cursor:pointer; padding:6px; min-height:36px;
+  }
+  .hint{
+    font-family:'Space Mono',monospace;
+    font-size:clamp(.6rem, 2.4vw, .72rem); color:var(--text-muted);
+  }
+  .hidden{ display:none !important; }
+  /* 게임 월드로 돌아가는 버튼 — 제목 왼쪽에 붙는다 */
+  .backBtn{
+    /* 시작/결과 오버레이(z-index:10)가 제목줄을 덮으므로 그 위로 올려야
+       어느 화면에서든 왼쪽 위 ← 로 게임 월드에 돌아갈 수 있다. */
+    position:relative; z-index:11;
+    flex-shrink:0; align-self:center; display:grid; place-items:center;
+    width:34px; height:34px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.16);
+    color:var(--text-muted); font-size:1.05rem; line-height:1;
+    text-decoration:none; cursor:pointer;
+    transition:color .15s, border-color .15s;
+  }
+  .backBtn:hover, .backBtn:focus-visible{ color:var(--gold); border-color:var(--gold); outline:none; }
+  /* 뒤로 가기 버튼이 제목줄 폭을 가져가므로, 제목은 줄바꿈하지 않고
+     부제가 먼저 줄어들게 한다(부제는 이미 말줄임 처리돼 있다). */
+  .titlebar h1{ white-space:nowrap; flex-shrink:0; }
+  .titlebar .sub{ min-width:0; flex:1 1 auto; text-align:right; }
+
+
+
+  .rankEntry{ display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:2px; width:100%; }
+  .rankInput{
+    font-family:'Baloo 2', sans-serif; font-size:clamp(.85rem, 3.4vw, 1rem);
+    background:#150e29; border:2px solid #4a3a80; border-radius:10px;
+    color:var(--text-primary); padding:8px 12px; text-align:center;
+    width:min(220px, 80vw);
+  }
+  .rankInput:focus{ outline:none; border-color:var(--teal); }
+  .rankEntryBtns{ display:flex; gap:8px; }
+  .miniBtn{
+    font-family:'Baloo 2', sans-serif; font-weight:700;
+    font-size:clamp(.75rem, 3vw, .88rem);
+    background:var(--teal); color:var(--bg-deep); border:none;
+    border-radius:999px; padding:8px 16px; cursor:pointer; min-height:38px;
+  }
+  .miniBtn.ghost{ background:transparent; color:var(--text-muted); border:2px solid #4a3a80; }
+  .rankSaved{ color:var(--gold); font-weight:700; font-size:clamp(.78rem, 3vw, .9rem); }
+
+  .rankList{
+    list-style:none; padding:0; margin:0; width:100%; max-width:320px;
+    display:flex; flex-direction:column; gap:6px; text-align:left;
+    max-height:50vh; overflow-y:auto;
+  }
+  .rankList li{
+    display:flex; align-items:center; gap:10px;
+    background:#150e29; border:1px solid #40315f; border-radius:10px; padding:8px 12px;
+    font-family:'Space Mono',monospace; font-size:clamp(.78rem, 3vw, .9rem);
+  }
+  .rankNum{ color:var(--gold); font-weight:700; width:1.6em; flex-shrink:0; }
+  .rankName{ flex:1; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rankScore{ color:var(--teal); font-weight:700; flex-shrink:0; }
+  .rankEmpty{ color:var(--text-muted); text-align:center; list-style:none; padding:8px; }
+
 </style>
 </head>
 <body>
 
-<div class="wrap">
+<div class="stage" id="stage">
+  <div class="titlebar">
+    <a class="backBtn" href="./world.html" aria-label="게임 월드로 돌아가기" title="게임 월드로 돌아가기">&#8592;</a>
+    <h1>♪ 오선보 노트 러시</h1>
+    <p class="sub" id="subLabel">오선보를 보고 알맞은 피아노 건반을 눌러보세요</p>
+  </div>
 
-  <header>
-    <p class="mark">Piano Studio</p>
-    <h1>Piano Studio<br>Game&nbsp;World</h1>
-    <p class="tagline">놀면서 음악을 익히는 미니게임 다섯 개. 하고 싶은 걸 골라 보세요.</p>
-    <div class="keys" aria-hidden="true">
-      <i></i><i class="b"></i><i></i><i class="b"></i><i></i>
-      <i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i>
-      <i></i>
+  <div class="hud">
+    <div class="lives" id="lives"></div>
+    <div class="combo" id="comboLabel">콤보 0</div>
+    <div class="score" id="scoreLabel">점수 0</div>
+  </div>
+  <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
+
+  <div class="canvasWrap" id="canvasWrap">
+    <canvas id="game"></canvas>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="overlay" id="startOverlay">
+    <h2>오선보 노트 러시</h2>
+    <p>음표가 오른쪽에서 흘러와 판정선 앞 <b>파란 구간</b>에 들어오면, 오선보 위
+    자리를 보고 알맞은 <b>피아노 건반</b>을 눌러주세요. 너무 일찍 누르면 정답으로
+    인정되지 않아요. 맞힐 때마다 그 음이 소리로 들려서 동요 멜로디를 그대로
+    연주하게 돼요.</p>
+    <div class="sectionLabel">동요 선택</div>
+    <div class="songPick" id="songPick">
+      <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
+      <button type="button" class="songBtn" data-song="1">학교종이 땡땡땡</button>
+      <button type="button" class="songBtn" data-song="2">나비야</button>
+      <button type="button" class="songBtn" data-song="3">🎲 랜덤</button>
     </div>
-  </header>
+    <button type="button" class="linkBtn" id="previewBtn">▶ 멜로디 미리듣기</button>
+    <div class="sectionLabel">속도 선택</div>
+    <div class="speedPick" id="speedPick">
+      <button type="button" class="speedBtn" data-speed="3.6">느리게</button>
+      <button type="button" class="speedBtn selected" data-speed="2.6">보통</button>
+      <button type="button" class="speedBtn" data-speed="1.9">빠르게</button>
+    </div>
+    <button class="primaryBtn" id="startBtn">시작하기</button>
+    <a class="linkBtn" href="./world.html">🏠 다른 게임 고르기</a>
+    <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
+    <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요<br>검은 건반은 이 동요들엔 나오지 않아요 🎹</div>
+  </div>
 
-  <main class="grid">
-
-    <a class="card" href="./note-rush.html" style="--accent:var(--gold)">
-      <div class="icon">🎼</div>
-      <div class="body">
-        <h2 class="name">오선보 노트 러시</h2>
-        <p class="learn">흘러오는 음표를 보고 피아노 건반을 눌러요. 오선보 읽기.</p>
-        <p class="meta"><span>도~높은도</span><span>동요 3곡</span><span>레벨업</span></p>
+  <div class="overlay hidden" id="overOverlay">
+    <h2>다시 도전해볼까?</h2>
+    <p id="overText"></p>
+    <div class="rankEntry" id="rankEntryOver">
+      <div class="rankForm" id="rankFormOver">
+        <input type="text" class="rankInput" id="rankNameOver" placeholder="이름(최대 12자)" maxlength="12">
+        <div class="rankEntryBtns">
+          <button type="button" class="miniBtn" id="rankSubmitOver">랭킹 등록</button>
+          <button type="button" class="miniBtn ghost" id="rankSkipOver">건너뛰기</button>
+        </div>
       </div>
-      <div class="go" aria-hidden="true">›</div>
-    </a>
+      <div class="rankSaved hidden" id="rankSavedOver">✅ 랭킹에 등록됐어요!</div>
+    </div>
+    <button class="primaryBtn" id="retryBtn">다시 시작</button>
+    <button type="button" class="linkBtn" id="menuBtnOver">다른 동요 선택</button>
+  </div>
 
-    <a class="card" href="./beat-mole.html" style="--accent:var(--coral)">
-      <div class="icon">🔨</div>
-      <div class="body">
-        <h2 class="name">망치 박자 게임</h2>
-        <p class="learn">박자에 맞춰 나오는 두더지를 때려요. 일정한 박 유지하기.</p>
-        <p class="meta"><span>구멍 4개</span><span>5스테이지</span><span>BPM 67~231</span></p>
+  <div class="overlay hidden" id="winOverlay">
+    <h2 id="winHeading">완주했어요!</h2>
+    <div class="stars" id="starsLabel"></div>
+    <p id="winText"></p>
+    <div class="rankEntry" id="rankEntryWin">
+      <div class="rankForm" id="rankFormWin">
+        <input type="text" class="rankInput" id="rankNameWin" placeholder="이름(최대 12자)" maxlength="12">
+        <div class="rankEntryBtns">
+          <button type="button" class="miniBtn" id="rankSubmitWin">랭킹 등록</button>
+          <button type="button" class="miniBtn ghost" id="rankSkipWin">건너뛰기</button>
+        </div>
       </div>
-      <div class="go" aria-hidden="true">›</div>
-    </a>
+      <div class="rankSaved hidden" id="rankSavedWin">✅ 랭킹에 등록됐어요!</div>
+    </div>
+    <button class="primaryBtn" id="againBtn">한 번 더 하기</button>
+    <button type="button" class="linkBtn" id="menuBtnWin">다른 동요 선택</button>
+  </div>
 
-    <a class="card" href="./fireworks.html" style="--accent:var(--teal)">
-      <div class="icon">🎆</div>
-      <div class="body">
-        <h2 class="name">리듬 불꽃놀이</h2>
-        <p class="learn">음표가 시작될 때 탭해서 불꽃을 터뜨려요. 음표 길이와 쉼표.</p>
-        <p class="meta"><span>2박·1박·반박</span><span>5스테이지</span><span>쉼표는 쉬기</span></p>
-      </div>
-      <div class="go" aria-hidden="true">›</div>
-    </a>
-
-    <a class="card" href="./fruit-rhythm.html" style="--accent:var(--orange)">
-      <div class="icon">🍊</div>
-      <div class="body">
-        <h2 class="name">과일 리듬 탭</h2>
-        <p class="learn">과일 이름의 음절로 한 박을 쪼개요. 귤, 레몬, 바나나, 파인애플.</p>
-        <p class="meta"><span>과일 9종</span><span>4단계</span><span>실패 없음</span></p>
-      </div>
-      <div class="go" aria-hidden="true">›</div>
-    </a>
-
-    <a class="card" href="./fate-trace.html" style="--accent:var(--neon)">
-      <div class="icon">🌀</div>
-      <div class="body">
-        <h2 class="name">운명 트레이싱</h2>
-        <p class="learn">베토벤 5번에 맞춰 그려지는 선을 손가락으로 쫓아가요.</p>
-        <p class="meta"><span>음원 준비 필요</span><span>2분 55초</span><span>실패 없음</span></p>
-      </div>
-      <div class="go" aria-hidden="true">›</div>
-    </a>
-
-  </main>
-
-  <footer>
-    <p>소리가 나와요 · 무음 모드를 꺼 주세요 · 기록은 이 기기에만 저장돼요</p>
-    <span class="tip">게임 안에서 왼쪽 위 ← 를 누르면 여기로 돌아와요</span>
-  </footer>
-
+  <div class="overlay hidden" id="rankOverlay">
+    <h2>🏆 랭킹 TOP 10</h2>
+    <ol class="rankList" id="rankingList"></ol>
+    <button type="button" class="linkBtn" id="closeRankBtn">닫기</button>
+  </div>
 </div>
 
+<script>
+(() => {
+  "use strict";
+
+  // 도(C4) ~ 높은도(C5). step: 오선보 아래 첫째줄(E4)=0 기준 반칸 단위
+  const NOTES = [
+    { name:'도',  sub:'C4', freq:261.63, step:-2, ledger:true  },
+    { name:'레',  sub:'D4', freq:293.66, step:-1, ledger:false },
+    { name:'미',  sub:'E4', freq:329.63, step: 0, ledger:false },
+    { name:'파',  sub:'F4', freq:349.23, step: 1, ledger:false },
+    { name:'솔',  sub:'G4', freq:392.00, step: 2, ledger:false },
+    { name:'라',  sub:'A4', freq:440.00, step: 3, ledger:false },
+    { name:'시',  sub:'B4', freq:493.88, step: 4, ledger:false },
+    { name:'도′', sub:'C5', freq:523.25, step: 5, ledger:false },
+  ];
+  const NOTE_INDEX_BY_NAME = Object.fromEntries(NOTES.map((n, i) => [n.name, i]));
+
+  // 실제 동요 멜로디의 계이름을 그대로 옮겨 정답을 맞힐 때마다 그 노래가
+  // 들리게 한다(단순 무작위 음이 아니라 진짜 노래를 "연주"하는 느낌).
+  // 각 곡의 계이름은 가사 음절 수와 대조해 맞춰본 것 — 혹시 한두 음이
+  // 실제 악보와 다르면 아래 names 배열만 고치면 바로 반영된다.
+  const SONGS = [
+    {
+      title:'곰 세 마리',
+      names:[
+        '도','도','도','도','도','미','솔','솔','미','도',
+        '솔','솔','미','솔','솔','미','도','도','도',
+        '솔','솔','미','도','솔','솔','솔',
+        '솔','솔','미','도','솔','솔','솔',
+        '솔','솔','미','도','솔','솔','솔','라','솔',
+        '도′','솔','도′','솔','미','레','도',
+      ],
+    },
+    {
+      title:'학교종이 땡땡땡',
+      names:[
+        '솔','솔','라','라','솔','솔','미',
+        '솔','솔','미','미','레',
+        '솔','솔','라','라','솔','솔','미',
+        '솔','미','레','미','도',
+      ],
+    },
+    {
+      title:'나비야',
+      names:[
+        '솔','미','미','파','레','레','도','레','미','파','솔','솔','솔',
+        '솔','미','미','미','파','레','레','도','미','솔','솔','미','미','미',
+        '레','레','레','레','레','미','파','미','미','미','미','미','파','솔',
+        '솔','미','미','파','레','레','도','미','솔','솔','미','미','미',
+      ],
+    },
+  ].map(song => ({ ...song, sequence: song.names.map(nm => NOTE_INDEX_BY_NAME[nm]) }));
+
+  const el = id => document.getElementById(id);
+  const canvas = el('game'), ctx = canvas.getContext('2d');
+  const wrap = el('canvasWrap');
+  const livesEl = el('lives'), comboEl = el('comboLabel'), scoreEl = el('scoreLabel');
+  const subEl = el('subLabel');
+  const toastEl = el('toast');
+  const startOverlay = el('startOverlay'), overOverlay = el('overOverlay'), winOverlay = el('winOverlay');
+  const rankOverlay = el('rankOverlay');
+  const controls = el('controls');
+
+  // ---------- 랭킹(이 기기/브라우저에만 저장) ----------
+  const RANKING_KEY = 'noteRushRanking_v1';
+  const RANKING_MAX = 10;
+  function loadRanking(){
+    try {
+      const raw = localStorage.getItem(RANKING_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch(e){ return []; }
+  }
+  function addRankingEntry(name, score){
+    const list = loadRanking();
+    list.push({ name: (name || '이름없음').slice(0, 12), score, date: new Date().toISOString().slice(0, 10) });
+    list.sort((a, b) => b.score - a.score);
+    list.length = Math.min(list.length, RANKING_MAX);
+    try { localStorage.setItem(RANKING_KEY, JSON.stringify(list)); } catch(e){}
+  }
+  function renderRankingList(){
+    const list = loadRanking();
+    const listEl = el('rankingList');
+    listEl.innerHTML = '';
+    if(list.length === 0){
+      const li = document.createElement('li');
+      li.className = 'rankEmpty';
+      li.textContent = '아직 등록된 기록이 없어요.';
+      listEl.appendChild(li);
+      return;
+    }
+    list.forEach((r, i) => {
+      const li = document.createElement('li');
+      const num = document.createElement('span'); num.className = 'rankNum'; num.textContent = `${i + 1}`;
+      const name = document.createElement('span'); name.className = 'rankName'; name.textContent = r.name;
+      const score = document.createElement('span'); score.className = 'rankScore'; score.textContent = `${r.score}점`;
+      li.append(num, name, score);
+      listEl.appendChild(li);
+    });
+  }
+  // overOverlay/winOverlay에 각각 붙는 "이름 입력 → 랭킹 등록/건너뛰기" 미니 폼.
+  // 라운드가 끝날 때마다 resetRankEntry*()로 새 폼 상태로 되돌려준다.
+  function setupRankEntry(prefix, getScore){
+    const form = el('rankForm' + prefix);
+    const saved = el('rankSaved' + prefix);
+    const input = el('rankName' + prefix);
+    const submit = () => {
+      addRankingEntry(input.value.trim(), getScore());
+      form.classList.add('hidden');
+      saved.classList.remove('hidden');
+    };
+    const skip = () => {
+      form.classList.add('hidden');
+      saved.classList.add('hidden');
+    };
+    const submitBtn = el('rankSubmit' + prefix), skipBtn = el('rankSkip' + prefix);
+    submitBtn.addEventListener('touchstart', e => { e.preventDefault(); submit(); }, {passive:false});
+    submitBtn.addEventListener('click', submit);
+    skipBtn.addEventListener('touchstart', e => { e.preventDefault(); skip(); }, {passive:false});
+    skipBtn.addEventListener('click', skip);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+    return () => {
+      form.classList.remove('hidden');
+      saved.classList.add('hidden');
+      input.value = '';
+    };
+  }
+  const resetRankEntryOver = setupRankEntry('Over', () => state.score);
+  const resetRankEntryWin = setupRankEntry('Win', () => state.score);
+
+  const viewRankBtn = el('viewRankBtn'), closeRankBtn = el('closeRankBtn');
+  const openRanking = e => {
+    if(e) e.preventDefault();
+    renderRankingList();
+    startOverlay.classList.add('hidden');
+    rankOverlay.classList.remove('hidden');
+  };
+  const closeRanking = e => {
+    if(e) e.preventDefault();
+    rankOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  };
+  viewRankBtn.addEventListener('touchstart', openRanking, {passive:false});
+  viewRankBtn.addEventListener('click', openRanking);
+  closeRankBtn.addEventListener('touchstart', closeRanking, {passive:false});
+  closeRankBtn.addEventListener('click', closeRanking);
+
+  // ---------- 반응형 캔버스 ----------
+  let W = 0, H = 0, geo = null;
+  function layout(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const r = wrap.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 오선 줄 간격 — 높이 기준만 쓰면 세로로 긴 폰 화면에서 줄 간격과 높은음자리표가
+    // 화면을 다 덮을 만큼 커진다. 가로폭 기준 상한을 같이 둬서 폰에서도 악보답게 보이게.
+    const lineGap    = Math.min(H * 0.115, W * 0.075);
+    // 맨 아래 줄(E4) — 오선(+아래 덧줄 여유)이 캔버스 세로 중앙에 오도록
+    const bottomLine = H * 0.5 + lineGap * 2.2;
+
+    // 높은음자리표는 글리프가 넓어서, 예전처럼 판정선을 화면 폭 비율(20%)로
+    // 고정하면 자리표가 판정선을 덮어 음표가 자리표 뒤에서 사라졌다. 실제
+    // 글리프 폭을 재서 오선과 판정선을 그 오른쪽부터 시작하게 한다.
+    const clefSize = lineGap * 6.4;
+    const clefX = W * 0.015;
+    ctx.font = `${clefSize}px Georgia, 'Times New Roman', serif`;
+    const m = ctx.measureText('𝄞');
+    const clefRight = clefX + (m.actualBoundingBoxRight || m.width || lineGap * 3);
+
+    geo = {
+      lineGap,
+      bottomLine,
+      half: lineGap / 2,
+      // 오선은 자리표 밑까지 그린다(악보에서 자리표는 오선 위에 얹힌다).
+      staffLeft: W * 0.02,
+      // 판정선만 자리표 오른쪽으로 — 그래야 음표가 자리표 뒤에서 사라지지 않는다.
+      judgeX: Math.min(clefRight + lineGap * 0.4, W * 0.5),
+      spawnX: W - Math.max(W * 0.05, 18),
+      noteRx: lineGap * 0.46,
+      noteRy: lineGap * 0.34,
+      stem: lineGap * 1.5,
+      clefSize,
+      clefX,
+    };
+  }
+  const yOf = step => geo.bottomLine - step * geo.half;
+
+  // ---------- 판정 구간 ----------
+  // 음표가 판정선 바로 앞 이 구간에 들어왔을 때만 정답이 인정된다. 예전엔
+  // 위치와 상관없이 계이름만 맞으면 바로 정답 처리돼서, 음표가 아직 화면
+  // 오른쪽 끝에 있어도 성공해버렸다(리듬 게임이 아니라 단순 퀴즈가 됨).
+  // 구간 폭은 전체 이동 거리의 40%를 기본으로 하되, 레벨이 올라 음표가
+  // 빨라져도 최소 0.55초는 확보되도록 시간 기준 하한을 같이 둔다.
+  const HIT_ZONE_RATIO = 0.40;
+  const HIT_ZONE_MIN_SEC = 0.55;
+  function hitZoneFraction(){
+    return Math.min(1, Math.max(HIT_ZONE_RATIO, HIT_ZONE_MIN_SEC / state.travelTime));
+  }
+  function hitZoneX(){
+    return geo.judgeX + (geo.spawnX - geo.judgeX) * hitZoneFraction();
+  }
+  function inHitZone(n){
+    return !!n && n.x <= hitZoneX();
+  }
+
+  if (window.ResizeObserver) new ResizeObserver(() => { layout(); }).observe(wrap);
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 250));
+
+  // ---------- 사운드 ----------
+  let audioCtx = null;
+  function initAudio(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) audioCtx = new AC();
+    }
+    // resume()는 비동기라 완료 전에 tone()이 먼저 불리면 상태가 아직
+    // 'suspended'일 수 있다 — audioCtx 존재 여부만 확인하고 바로 스케줄해서,
+    // resume이 늦게 끝나도 그 소리가 통째로 씹히지 않게 한다.
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  }
+  // 삼각파 하나만 울리면 얇고 전자음 같아서, 한 옥타브 위 사인파를 작게 얹고
+  // 어택을 살짝 부드럽게 해 실로폰/피아노 느낌에 가깝게 만든다. 음높이·길이는 그대로.
+  function tone(freq, dur=0.4){
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const out = audioCtx.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(0.32, t0 + 0.015);
+    out.gain.exponentialRampToValueAtTime(0.12, t0 + Math.min(0.12, dur * 0.4));
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    out.connect(audioCtx.destination);
+    const o = audioCtx.createOscillator();
+    o.type = 'triangle'; o.frequency.value = freq;
+    o.connect(out);
+    const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+    o2.type = 'sine'; o2.frequency.value = freq * 2;
+    g2.gain.setValueAtTime(0.35, t0);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.6);
+    o2.connect(g2).connect(out);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+    o2.start(t0); o2.stop(t0 + dur + 0.05);
+  }
+  function buzz(){
+    if(navigator.vibrate) navigator.vibrate(60);
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = 110;
+    g.gain.setValueAtTime(0.16, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + 0.26);
+  }
+
+  // 시작 전에 그 동요가 실제로 어떻게 들리는지 미리 들려준다 — "감으로 아무
+  // 버튼이나 누르는" 게 아니라 "이 멜로디를 내가 직접 쳐본다"는 느낌이 나야
+  // 게임하는 맛이 산다는 피드백을 반영.
+  function previewSong(song){
+    initAudio();
+    const play = () => {
+      const noteDur = 0.34;
+      song.sequence.forEach((idx, i) => {
+        setTimeout(() => tone(NOTES[idx].freq, noteDur * 0.85), i * noteDur * 1000);
+      });
+    };
+    if(audioCtx && audioCtx.state === 'running') play();
+    else if(audioCtx) audioCtx.resume().then(play);
+  }
+  const previewBtn = el('previewBtn');
+  const firePreview = e => { e.preventDefault(); previewSong(getSelectedSong()); };
+  previewBtn.addEventListener('touchstart', firePreview, {passive:false});
+  previewBtn.addEventListener('click', firePreview);
+
+  // ---------- 피아노 건반(터치 우선) ----------
+  // 계이름 버튼 대신 실제 피아노 배열로 놓는다. 흰 건반 8개(도~높은 도)가
+  // 정답 후보이고, 검은 건반 5개는 "도는 검은 건반 두 개의 왼쪽" 같은 위치
+  // 감각을 함께 익히라고 그려 넣는다. 세 동요 어디에도 검은 건반 음은 없어서
+  // 검은 건반은 소리만 들려주고 정답 판정에는 관여하지 않는다 — 좁은 화면에서
+  // 스치듯 잘못 눌린 것까지 생명 감소로 벌주지 않기 위해서다.
+  const BLACK_KEYS = [
+    { after:0, name:'도♯', sub:'C#4', freq:277.18 },
+    { after:1, name:'레♯', sub:'D#4', freq:311.13 },
+    { after:3, name:'파♯', sub:'F#4', freq:369.99 },
+    { after:4, name:'솔♯', sub:'G#4', freq:415.30 },
+    { after:5, name:'라♯', sub:'A#4', freq:466.16 },
+  ];
+  const whiteRow = document.createElement('div'); whiteRow.className = 'whiteRow';
+  const blackRow = document.createElement('div'); blackRow.className = 'blackRow';
+  controls.append(whiteRow, blackRow);
+
+  // 터치 뒤에 브라우저가 흉내 내는 mousedown(고스트 클릭)만 걸러낸다.
+  // 예전엔 마우스 클릭도 이 가드를 켜버려서, 같은 음이 연달아 나오는 구간
+  // (곰 세 마리 첫 "도도도도도")에서 데스크톱 사용자가 350ms 안에 같은
+  // 건반을 다시 누르면 두 번째 입력이 통째로 무시됐다.
+  function wireKey(b, onPress){
+    let touchGuard = false;
+    const press = e => {
+      e.preventDefault();
+      b.classList.add('pressed');
+      onPress();
+    };
+    b.addEventListener('touchstart', e => {
+      touchGuard = true;
+      press(e);
+      setTimeout(() => { touchGuard = false; }, 350);
+    }, {passive:false});
+    b.addEventListener('mousedown', e => { if(!touchGuard) press(e); });
+    b.addEventListener('click', e => e.preventDefault());
+    const release = () => b.classList.remove('pressed');
+    ['touchend','touchcancel','mouseup','mouseleave'].forEach(ev =>
+      b.addEventListener(ev, release));
+    b.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onPress(); }
+    });
+  }
+
+  const buttons = NOTES.map((n, i) => {
+    const b = document.createElement('button');
+    b.className = 'noteBtn white';
+    b.type = 'button';
+    b.innerHTML = `${n.name}<small>${n.sub}</small>`;
+    b.setAttribute('aria-label', `${n.name} ${n.sub} 건반`);
+    wireKey(b, () => answer(i, b));
+    whiteRow.appendChild(b);
+    return b;
+  });
+
+  const WHITE_W = 100 / NOTES.length;   // 흰 건반 한 칸의 폭(%)
+  const BLACK_W = WHITE_W * 0.62;
+  BLACK_KEYS.forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'noteBtn black';
+    b.type = 'button';
+    b.style.width = BLACK_W + '%';
+    // 검은 건반은 이웃한 두 흰 건반의 경계 위에 걸터앉는다
+    b.style.left = ((k.after + 1) * WHITE_W - BLACK_W / 2) + '%';
+    b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
+    b.title = `${k.name} (${k.sub})`;
+    wireKey(b, () => pressBlackKey(k));
+    blackRow.appendChild(b);
+  });
+
+  function pressBlackKey(k){
+    initAudio();
+    tone(k.freq, 0.3);
+    if(state.screen === 'playing') showToast(`${k.name} — 이 노래엔 검은 건반이 없어요 🎹`, 700);
+  }
+
+  window.addEventListener('keydown', e => {
+    const k = parseInt(e.key, 10);
+    if(k >= 1 && k <= 8 && state.screen === 'playing') answer(k - 1, buttons[k - 1]);
+  });
+
+  // ---------- 속도 선택 ----------
+  let baseTravel = 2.6;    // 기본 "보통"
+  let minTravel  = 1.2;    // 레벨업 하한
+  document.querySelectorAll('.speedBtn').forEach(b => {
+    const pick = e => {
+      e.preventDefault();
+      document.querySelectorAll('.speedBtn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      baseTravel = parseFloat(b.dataset.speed);
+      minTravel  = baseTravel * 0.46;
+    };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
+  });
+
+  // ---------- 동요 선택 ----------
+  let selectedSongIndex = 0;
+  document.querySelectorAll('.songBtn').forEach((b, i) => {
+    const pick = e => {
+      e.preventDefault();
+      document.querySelectorAll('.songBtn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      selectedSongIndex = i;
+    };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
+  });
+
+  // "랜덤"은 목록에 없는 고정곡이 아니라, 고를 때마다 8개 음 중에서 매번 새로
+  // 뽑아 만든 시퀀스다 — SONGS 배열 길이(3)를 그대로 "랜덤" 인덱스로 쓴다.
+  const RANDOM_LENGTH = 40;
+  function buildRandomSequence(){
+    return Array.from({length: RANDOM_LENGTH}, () => Math.floor(Math.random() * NOTES.length));
+  }
+  function getSelectedSong(){
+    if(selectedSongIndex === SONGS.length){
+      return { title:'랜덤', sequence: buildRandomSequence() };
+    }
+    return SONGS[selectedSongIndex];
+  }
+
+  // ---------- 게임 상태 ----------
+  let state;
+  function resetState(){
+    state = {
+      screen:'start',
+      score:0, combo:0, maxCombo:0,
+      lives:3, correct:0, misses:0,
+      level:1, travelTime:baseTravel,  // 판정선까지 도달 시간(초) — 화면 크기와 무관
+      song: getSelectedSong(),
+      songPos:0,
+      current:null,
+    };
+  }
+  resetState();
+
+  // lostIndex: 방금 잃은 하트 자리 — 그 하트만 흔들리며 꺼진다.
+  function renderHUD(lostIndex = -1){
+    livesEl.innerHTML = '';
+    for(let i = 0; i < 3; i++){
+      const s = document.createElement('span');
+      s.className = 'heart' + (i < state.lives ? '' : ' off') + (i === lostIndex ? ' lost' : '');
+      s.textContent = '♥';
+      livesEl.appendChild(s);
+    }
+    comboEl.textContent = `콤보 ${state.combo}`;
+    scoreEl.textContent = `점수 ${state.score}`;
+    renderProgress();
+  }
+  // "N/전체" 표시와 진행 바 — 예전엔 renderHUD가 songPos를 올리기 전에 불려서
+  // 항상 한 음 늦게 보였다. 음이 넘어가는 advanceSong에서 따로 갱신한다.
+  function renderProgress(){
+    const len = state.song.sequence.length;
+    if(state.screen === 'playing'){
+      subEl.textContent = `${state.song.title} · ${state.songPos}/${len}`;
+    }
+    el('progressFill').style.width = len ? (state.songPos / len * 100) + '%' : '0%';
+  }
+  function bumpCombo(){
+    comboEl.classList.remove('bump');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('bump');
+  }
+  let wrapFlashTimer = null;
+  function flashWrap(cls){
+    wrap.classList.remove('missFlash', 'goodFlash');
+    void wrap.offsetWidth;
+    wrap.classList.add(cls);
+    clearTimeout(wrapFlashTimer);
+    wrapFlashTimer = setTimeout(() => wrap.classList.remove(cls), 60);
+  }
+
+  // ---------- 캔버스 파티클/떠오르는 글자 ----------
+  // 정답을 맞힌 자리에서 금색 반짝임이 터지고 "+점수"와 계이름이 떠오른다.
+  const particles = [];
+  const floaters = [];
+  function burstAt(x, y, color){
+    const n = 14;
+    for(let i = 0; i < n; i++){
+      const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+      const sp = 90 + Math.random() * 120;
+      particles.push({ x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - 40, life:0.55, max:0.55, r:2 + Math.random() * 2.5, color });
+    }
+  }
+  function floatText(x, y, text, color, size){
+    floaters.push({ x, y, text, color, size, life:0.8, max:0.8 });
+  }
+  function drawEffects(dt){
+    for(let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      p.life -= dt;
+      if(p.life <= 0){ particles.splice(i, 1); continue; }
+      p.vy += 260 * dt; // 중력
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    for(let i = floaters.length - 1; i >= 0; i--){
+      const f = floaters[i];
+      f.life -= dt;
+      if(f.life <= 0){ floaters.splice(i, 1); continue; }
+      f.y -= 45 * dt;
+      const k = f.life / f.max;
+      ctx.globalAlpha = Math.min(1, k * 1.6);
+      ctx.fillStyle = f.color;
+      ctx.font = `800 ${f.size}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'start';
+  }
+
+  let toastTimer = null;
+  function showToast(msg, ms=1100){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+
+  function spawnNote(){
+    if(state.screen !== 'playing') return;
+    const idx = state.song.sequence[state.songPos];
+    state.current = { idx, x: geo.spawnX, resolved:false, flashFrames:0, flashType:null };
+  }
+
+  // 정답이든 오답이든 노래는 계속 앞으로 흘러간다 — 한 음에서 막혀버리면
+  // 안 되니, 다음 음으로 넘어가고 그게 노래의 끝이면 클리어 처리한다.
+  function advanceSong(delay){
+    state.songPos++;
+    renderProgress();
+    if(state.songPos >= state.song.sequence.length) setTimeout(victory, delay);
+    else setTimeout(spawnNote, delay);
+  }
+
+  function answer(idx, btn){
+    if(state.screen !== 'playing' || !state.current || state.current.resolved) return;
+    const n = state.current;
+    // 판정 구간 밖(아직 음표가 멀리 있음)에서 누른 건 정답이든 오답이든 무효 —
+    // 생명을 깎지 않고 그냥 무시하면서 조금 더 기다리라고 알려준다.
+    if(!inHitZone(n)){
+      showToast('아직이에요! 음표가 파란 구간에 오면 눌러요 ⏳', 700);
+      flashBtn(btn, 'earlyFlash');
+      return;
+    }
+    if(idx === n.idx){
+      n.resolved = true;
+      n.flashFrames = 12; n.flashType = 'correct';
+      state.correct++;
+      state.combo++;
+      state.maxCombo = Math.max(state.maxCombo, state.combo);
+      const gained = 10 + Math.min(state.combo, 10) * 2;
+      state.score += gained;
+      tone(NOTES[idx].freq);
+      if(navigator.vibrate) navigator.vibrate(12);
+      flashBtn(btn, 'correctFlash');
+      flashWrap('goodFlash');
+      const ny = yOf(NOTES[idx].step);
+      burstAt(n.x, ny, '#FFC857');
+      floatText(n.x, ny - geo.lineGap * 2.2, `+${gained}`, '#FFC857', Math.min(26, Math.max(13, geo.lineGap * 0.9)));
+      if(state.combo > 0 && state.combo % 5 === 0) showToast(`콤보 ${state.combo}! 🔥`);
+      maybeLevelUp();
+      renderHUD();
+      bumpCombo();
+      advanceSong(90);
+    } else {
+      n.resolved = true;
+      n.flashFrames = 30; n.flashType = 'wrong';
+      state.combo = 0; state.lives--; state.misses++;
+      buzz();
+      flashWrap('missFlash');
+      // 틀려도 원래 음은 들려준다 — 멜로디 흐름이 안 끊겨야 "노래를 치고
+      // 있다"는 느낌이 유지되고, 정답 음이 뭐였는지 귀로도 익힐 수 있다.
+      setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
+      flashBtn(btn, 'wrongFlash');
+      flashBtn(buttons[n.idx], 'hintFlash', 600); // 정답 버튼을 알려준다
+      renderHUD(state.lives);
+      if(state.lives <= 0) setTimeout(gameOver, 300);
+      else advanceSong(550);
+    }
+  }
+  function flashBtn(btn, cls, ms = 220){
+    if(!btn) return;
+    btn.classList.add(cls);
+    setTimeout(() => btn.classList.remove(cls), ms);
+  }
+
+  function maybeLevelUp(){
+    if(state.correct > 0 && state.correct % 5 === 0){
+      state.level++;
+      state.travelTime = Math.max(state.travelTime / 1.18, minTravel);
+      showToast('레벨 업! 조금 더 빨라져요 🎵');
+    }
+  }
+
+  function missCurrent(){
+    const n = state.current;
+    if(!n || n.resolved) return;
+    n.resolved = true;
+    n.flashFrames = 26; n.flashType = 'wrong';
+    state.combo = 0; state.lives--; state.misses++;
+    buzz();
+    flashWrap('missFlash');
+    setTimeout(() => tone(NOTES[n.idx].freq, 0.28), 120);
+    flashBtn(buttons[n.idx], 'hintFlash', 600); // 놓친 음의 정답 버튼을 알려준다
+    renderHUD(state.lives);
+    if(state.lives <= 0) setTimeout(gameOver, 250);
+    else advanceSong(450);
+  }
+
+  function gameOver(){
+    // setTimeout으로 지연 호출되는 함수라, 그 사이 사용자가 메뉴로 나가거나
+    // 새 게임을 시작해 screen이 이미 바뀌었으면 옛 라운드의 결과로 화면을
+    // 덮어써선 안 된다.
+    if(state.screen !== 'playing') return;
+    state.screen = 'gameover';
+    el('overText').textContent =
+      `${state.song.title}, ${state.songPos}/${state.song.sequence.length}음까지 갔어요. 점수 ${state.score}점 · 최대 콤보 ${state.maxCombo}. 다음엔 더 잘할 수 있어요!`;
+    resetRankEntryOver();
+    overOverlay.classList.remove('hidden');
+  }
+  function victory(){
+    if(state.screen !== 'playing') return;
+    state.screen = 'victory';
+    const stars = state.misses === 0 ? 3 : state.misses <= 2 ? 2 : 1;
+    el('starsLabel').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    el('winHeading').textContent = `${state.song.title} 완주!`;
+    el('winText').textContent =
+      `끝까지 연주했어요! 최종 점수 ${state.score}점, 최대 콤보 ${state.maxCombo}`;
+    resetRankEntryWin();
+    winOverlay.classList.remove('hidden');
+  }
+
+  function startGame(){
+    initAudio();
+    layout();
+    resetState();
+    state.screen = 'playing';
+    startOverlay.classList.add('hidden');
+    overOverlay.classList.add('hidden');
+    winOverlay.classList.add('hidden');
+    rankOverlay.classList.add('hidden');
+    renderHUD();
+    particles.length = 0; floaters.length = 0;
+    spawnNote();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+  ['startBtn','retryBtn','againBtn'].forEach(id => {
+    const b = el(id);
+    b.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
+    b.addEventListener('click', startGame);
+  });
+
+  function backToMenu(){
+    state.screen = 'start';
+    overOverlay.classList.add('hidden');
+    winOverlay.classList.add('hidden');
+    startOverlay.classList.remove('hidden');
+  }
+  ['menuBtnOver','menuBtnWin'].forEach(id => {
+    const b = el(id);
+    b.addEventListener('touchstart', e => { e.preventDefault(); backToMenu(); }, {passive:false});
+    b.addEventListener('click', backToMenu);
+  });
+
+  // 백그라운드 전환 시 일시정지 → 복귀 시 재개
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden && state.screen === 'playing'){
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+  });
+
+  // ---------- 그리기 ----------
+  function drawStaff(){
+    ctx.lineWidth = Math.max(1.2, H * 0.006);
+    ctx.strokeStyle = '#EDE6FF';
+    for(let i = 0; i < 5; i++){
+      const y = geo.bottomLine - i * geo.lineGap;
+      ctx.beginPath();
+      ctx.moveTo(geo.staffLeft, y);
+      ctx.lineTo(W - 4, y);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#FFC857';
+    ctx.font = `${geo.clefSize}px Georgia, 'Times New Roman', serif`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('𝄞', geo.clefX, geo.bottomLine + geo.lineGap * 0.55);
+
+    // 판정 구간 — 음표가 이 띠 안에 들어와야 버튼이 정답으로 인정된다.
+    // 음표가 들어와 있으면(armed) 띠가 밝아지고 "지금!"이 뜬다.
+    ctx.save();
+    const top = geo.bottomLine - geo.lineGap * 5.4, bottom = geo.bottomLine + geo.lineGap * 1.6;
+    const zx = hitZoneX();
+    const armed = !!state.current && !state.current.resolved && state.current.x <= zx;
+    const zoneGrad = ctx.createLinearGradient(geo.judgeX, 0, zx, 0);
+    zoneGrad.addColorStop(0, armed ? 'rgba(78,205,196,.26)' : 'rgba(78,205,196,.11)');
+    zoneGrad.addColorStop(1, 'rgba(78,205,196,0)');
+    ctx.fillStyle = zoneGrad;
+    ctx.fillRect(geo.judgeX, top, zx - geo.judgeX, bottom - top);
+    // 구간이 끝나는 지점(여기부터 누를 수 있다)을 옅은 점선으로
+    ctx.strokeStyle = armed ? 'rgba(78,205,196,.55)' : 'rgba(78,205,196,.3)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 7]);
+    ctx.beginPath();
+    ctx.moveTo(zx, top);
+    ctx.lineTo(zx, bottom);
+    ctx.stroke();
+    // 판정선(구간의 왼쪽 끝) — 여기 닿으면 놓친 것
+    ctx.strokeStyle = 'rgba(78,205,196,.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(geo.judgeX, top);
+    ctx.lineTo(geo.judgeX, bottom);
+    ctx.stroke();
+    if(armed){
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#4ECDC4';
+      ctx.font = `800 ${Math.min(20, Math.max(11, geo.lineGap * 0.7))}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // 오선 위쪽(음표가 지나가지 않는 여백)에 띄운다 — 아래에 두면 낮은 음
+      // 음표(도·레)와 정확히 겹쳐서 둘 다 안 보였다.
+      ctx.fillText('지금!', (geo.judgeX + zx) / 2, top + geo.lineGap * 0.5);
+    }
+    ctx.restore();
+  }
+
+  function drawNote(n){
+    const def = NOTES[n.idx];
+    const y = yOf(def.step);
+    let color = '#FFC857';
+    let label = null;
+    if(n.flashType === 'wrong' && n.flashFrames > 0){
+      color = '#FF6B6B'; n.flashFrames--;
+      label = def.name; // 틀린/놓친 음의 계이름을 음표 위에 보여줘서 눈으로 익힌다
+    } else if(n.flashType === 'correct' && n.flashFrames > 0){
+      color = '#FFFFFF'; n.flashFrames--;
+    }
+    // 판정선에 가까워질수록 음표 주변 빛이 커져서 "곧 닿는다"는 긴장감을 준다
+    const range = Math.max(1, geo.spawnX - geo.judgeX);
+    const prox = Math.max(0, Math.min(1, 1 - (n.x - geo.judgeX) / range));
+
+    if(def.ledger){
+      ctx.strokeStyle = '#EDE6FF';
+      ctx.lineWidth = Math.max(1.2, H * 0.006);
+      ctx.beginPath();
+      ctx.moveTo(n.x - geo.noteRx * 1.7, y);
+      ctx.lineTo(n.x + geo.noteRx * 1.7, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.6, geo.lineGap * 0.11);
+    ctx.beginPath();
+    if(def.step <= 2){ ctx.moveTo(n.x + geo.noteRx * 0.9, y); ctx.lineTo(n.x + geo.noteRx * 0.9, y - geo.stem); }
+    else            { ctx.moveTo(n.x - geo.noteRx * 0.9, y); ctx.lineTo(n.x - geo.noteRx * 0.9, y + geo.stem); }
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4 + prox * 16;
+    ctx.translate(n.x, y);
+    ctx.rotate(-0.35);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, geo.noteRx, geo.noteRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 판정 구간에 들어온 음표는 청록 링을 둘러서 "지금 누를 수 있다"를 알린다
+    if(!n.resolved && inHitZone(n)){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(78,205,196,.9)';
+      ctx.lineWidth = Math.max(1.5, geo.lineGap * 0.09);
+      ctx.beginPath();
+      ctx.arc(n.x, y, geo.noteRx * 1.95, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if(label){
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = `800 ${Math.min(26, Math.max(13, geo.lineGap * 0.9))}px 'Baloo 2', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const ly = def.step <= 2 ? y - geo.stem - geo.lineGap * 0.7 : y - geo.lineGap * 1.1;
+      ctx.fillText(label, n.x, ly);
+      ctx.restore();
+    }
+  }
+
+  let lastTime = 0;
+  function loop(t){
+    if(state.screen !== 'playing') return;
+    if(document.hidden){ return; }
+    const dt = Math.min((t - lastTime) / 1000, 0.05);
+    lastTime = t;
+
+    ctx.clearRect(0, 0, W, H);
+    drawStaff();
+
+    const n = state.current;
+    if(n){
+      if(!n.resolved){
+        const speed = (geo.spawnX - geo.judgeX) / state.travelTime;  // px/s, 화면폭에 자동 비례
+        n.x -= speed * dt;
+        if(n.x <= geo.judgeX){ n.x = geo.judgeX; missCurrent(); }
+      }
+      drawNote(n);
+    }
+    drawEffects(dt);
+    requestAnimationFrame(loop);
+  }
+
+  layout();
+  renderHUD();
+})();
+</script>
 </body>
 </html>

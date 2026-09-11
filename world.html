@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#17102B">
+<title>Piano Studio Game World</title>
+<meta name="description" content="피아노 스튜디오 음악 게임 모음 — 오선보, 박자, 리듬, 음표 길이를 놀면서 익혀요.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#17102B;
+    --bg-panel:#221a3f;
+    --bg-panel-2:#2c2154;
+    --gold:#FFC857;
+    --coral:#FF6B6B;
+    --teal:#4ECDC4;
+    --neon:#F020F0;
+    --orange:#FF8A3D;
+    --text-primary:#F4EFFF;
+    --text-muted:#b3a6dd;
+    --pad: max(14px, env(safe-area-inset-left));
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; min-height:100%; overscroll-behavior-y:none;}
+  body{
+    background:
+      radial-gradient(circle at 18% -10%, #33215e 0%, transparent 55%),
+      radial-gradient(circle at 85% 8%, #1e2f5c 0%, transparent 50%),
+      var(--bg-deep);
+    background-attachment:fixed;
+    color:var(--text-primary);
+    font-family:'Baloo 2', system-ui, -apple-system, sans-serif;
+    padding-block: max(20px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-bottom));
+    padding-inline: var(--pad);
+  }
+  .wrap{max-width:940px; margin:0 auto;}
+
+  /* ---------- 머리말 ---------- */
+  header{text-align:center; margin-bottom:clamp(20px, 5vw, 34px);}
+  .mark{
+    font-family:'Space Mono', monospace; font-size:clamp(.6rem,2.6vw,.72rem);
+    letter-spacing:.22em; text-transform:uppercase; color:var(--teal);
+    margin:0 0 10px;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(1.75rem, 7.5vw, 3.1rem);
+    font-weight:800; line-height:1.08; letter-spacing:-.01em;
+    background:linear-gradient(96deg, var(--gold) 12%, var(--coral) 52%, var(--neon) 92%);
+    -webkit-background-clip:text; background-clip:text;
+    color:transparent;
+  }
+  .tagline{
+    margin:12px auto 0; max-width:30em;
+    color:var(--text-muted); font-size:clamp(.86rem, 3.4vw, 1.02rem); line-height:1.5;
+  }
+  .keys{display:flex; justify-content:center; gap:1px; margin-top:18px; position:relative;}
+  .keys i{
+    display:block; width:clamp(13px,3.4vw,20px); height:clamp(34px,8vw,48px);
+    background:linear-gradient(#fdfbff, #ded3f2); border-radius:0 0 4px 4px;
+  }
+  .keys i.b{
+    /* position 없이는 z-index가 무시돼 뒤따라오는 흰 건반에 덮인다 */
+    position:relative; z-index:1;
+    width:clamp(8px,2.2vw,13px); height:clamp(21px,5vw,30px);
+    background:linear-gradient(#2a1f4a, #0c0817);
+    border-radius:0 0 3px 3px;
+    margin-inline:calc(clamp(8px,2.2vw,13px) / -2);
+  }
+
+  /* ---------- 게임 카드 ---------- */
+  .grid{
+    display:grid; gap:clamp(11px, 2.6vw, 16px);
+    grid-template-columns:1fr;
+  }
+  @media (min-width:600px){ .grid{grid-template-columns:repeat(2, 1fr);} }
+
+  .card{
+    position:relative; display:flex; align-items:center; gap:clamp(12px,3vw,18px);
+    background:linear-gradient(150deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border:1px solid #372a63; border-left:5px solid var(--accent, var(--gold));
+    border-radius:14px; padding:clamp(14px,3.4vw,19px);
+    color:inherit; text-decoration:none;
+    transition:transform .16s ease-out, border-color .16s, box-shadow .16s;
+  }
+  .card:hover, .card:focus-visible{
+    transform:translateY(-3px);
+    border-color:var(--accent, var(--gold));
+    box-shadow:0 10px 26px rgba(0,0,0,.42);
+    outline:none;
+  }
+  .card:active{transform:translateY(0);}
+  .icon{
+    flex-shrink:0; display:grid; place-items:center;
+    width:clamp(46px,11vw,58px); height:clamp(46px,11vw,58px);
+    border-radius:13px; background:color-mix(in srgb, var(--accent) 16%, #0d0916);
+    font-size:clamp(1.5rem,5.6vw,1.95rem); line-height:1;
+  }
+  .body{min-width:0; flex:1;}
+  .name{
+    margin:0; font-size:clamp(1rem,4vw,1.2rem); font-weight:800;
+    color:var(--accent, var(--gold));
+  }
+  .learn{
+    margin:3px 0 0; font-size:clamp(.76rem,3vw,.87rem); line-height:1.45;
+    color:var(--text-muted);
+  }
+  .meta{
+    margin:8px 0 0; display:flex; flex-wrap:wrap; gap:5px;
+    font-family:'Space Mono', monospace; font-size:clamp(.58rem,2.4vw,.68rem);
+  }
+  .meta span{
+    background:#0d0916; border:1px solid #372a63; border-radius:999px;
+    padding:2px 8px; color:var(--text-muted); white-space:nowrap;
+  }
+  .go{
+    flex-shrink:0; align-self:center;
+    font-size:1.35rem; color:var(--accent, var(--gold)); opacity:.5;
+    transition:opacity .16s, transform .16s;
+  }
+  .card:hover .go{opacity:1; transform:translateX(3px);}
+
+  /* ---------- 꼬리말 ---------- */
+  footer{
+    margin-top:clamp(24px, 5vw, 36px); text-align:center;
+    color:var(--text-muted); font-size:clamp(.7rem,2.8vw,.8rem); line-height:1.7;
+  }
+  footer p{margin:0;}
+  .tip{
+    display:inline-block; margin-top:10px; padding:9px 15px;
+    background:var(--bg-panel); border:1px solid #372a63; border-radius:999px;
+    font-family:'Space Mono', monospace; font-size:clamp(.62rem,2.5vw,.71rem);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .card, .go{transition:none;}
+    .card:hover, .card:focus-visible{transform:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="mark">Piano Studio</p>
+    <h1>Piano Studio<br>Game&nbsp;World</h1>
+    <p class="tagline">놀면서 음악을 익히는 미니게임 다섯 개. 하고 싶은 걸 골라 보세요.</p>
+    <div class="keys" aria-hidden="true">
+      <i></i><i class="b"></i><i></i><i class="b"></i><i></i>
+      <i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i>
+      <i></i>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <a class="card" href="./index.html" style="--accent:var(--gold)">
+      <div class="icon">🎼</div>
+      <div class="body">
+        <h2 class="name">오선보 노트 러시</h2>
+        <p class="learn">흘러오는 음표를 보고 피아노 건반을 눌러요. 오선보 읽기.</p>
+        <p class="meta"><span>도~높은도</span><span>동요 3곡</span><span>레벨업</span></p>
+      </div>
+      <div class="go" aria-hidden="true">›</div>
+    </a>
+
+    <a class="card" href="./beat-mole.html" style="--accent:var(--coral)">
+      <div class="icon">🔨</div>
+      <div class="body">
+        <h2 class="name">망치 박자 게임</h2>
+        <p class="learn">박자에 맞춰 나오는 두더지를 때려요. 일정한 박 유지하기.</p>
+        <p class="meta"><span>구멍 4개</span><span>5스테이지</span><span>BPM 67~231</span></p>
+      </div>
+      <div class="go" aria-hidden="true">›</div>
+    </a>
+
+    <a class="card" href="./fireworks.html" style="--accent:var(--teal)">
+      <div class="icon">🎆</div>
+      <div class="body">
+        <h2 class="name">리듬 불꽃놀이</h2>
+        <p class="learn">음표가 시작될 때 탭해서 불꽃을 터뜨려요. 음표 길이와 쉼표.</p>
+        <p class="meta"><span>2박·1박·반박</span><span>5스테이지</span><span>쉼표는 쉬기</span></p>
+      </div>
+      <div class="go" aria-hidden="true">›</div>
+    </a>
+
+    <a class="card" href="./fruit-rhythm.html" style="--accent:var(--orange)">
+      <div class="icon">🍊</div>
+      <div class="body">
+        <h2 class="name">과일 리듬 탭</h2>
+        <p class="learn">과일 이름의 음절로 한 박을 쪼개요. 귤, 레몬, 바나나, 파인애플.</p>
+        <p class="meta"><span>과일 9종</span><span>4단계</span><span>실패 없음</span></p>
+      </div>
+      <div class="go" aria-hidden="true">›</div>
+    </a>
+
+    <a class="card" href="./fate-trace.html" style="--accent:var(--neon)">
+      <div class="icon">🌀</div>
+      <div class="body">
+        <h2 class="name">운명 트레이싱</h2>
+        <p class="learn">베토벤 5번에 맞춰 그려지는 선을 손가락으로 쫓아가요.</p>
+        <p class="meta"><span>음원 준비 필요</span><span>2분 55초</span><span>실패 없음</span></p>
+      </div>
+      <div class="go" aria-hidden="true">›</div>
+    </a>
+
+  </main>
+
+  <footer>
+    <p>소리가 나와요 · 무음 모드를 꺼 주세요 · 기록은 이 기기에만 저장돼요</p>
+    <span class="tip">게임 안에서 왼쪽 위 ← 를 누르면 여기로 돌아와요</span>
+  </footer>
+
+</div>
+
+</body>
+</html>
