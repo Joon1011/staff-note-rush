@@ -771,6 +771,7 @@
       stageIndex:0,
       tickIndex:-LEAD_IN_TICKS - 1,
       pendingOnset:false, pendingResolved:true, pendingOnsetDeadlineTick:0, pendingOnsetElIdx:0,
+      preHit:false, nextIsOnset:false, nextOnsetElIdx:0,
       lastCountdownBeat:null,
     };
     beatMs = beatMsForStage(0);
@@ -863,7 +864,7 @@
   }
   // 현재 음표 칸에 맞춤/놓침 결과를 남겨서 한 마디 안에서 어디를 틀렸는지 보인다.
   function markCurrentBar(cls, elIdxOverride){
-    if(state.tickIndex < 0) return;
+    if(state.tickIndex < 0 && elIdxOverride === undefined) return;
     const elIdx = (elIdxOverride !== undefined) ? elIdxOverride : currentElementAndOffset(state.tickIndex).elIdx;
     const bar = rhythmStripEl.children[elIdx];
     if(!bar) return;
@@ -995,22 +996,40 @@
 
   function launch(xPct){
     if(state.screen !== 'playing'){ return; }
-    // 카운트다운(예비 박자)이 아직 끝나기 전에 탭한 경우 — 곡이 진짜
+
+    // 1) 아직 못 맞힌 음표가 있으면 그것부터 — 늦게 친 것으로 인정한다.
+    if(state.pendingOnset && !state.pendingResolved){
+      registerHitOnset(xPct);
+      return;
+    }
+
+    // 2) 다음 음표가 곧 시작되고 조금 이르게 쳤으면 미리 맞힌 것으로 친다.
+    // 판정이 틱 단위라 이게 없으면 정박에 맞춰 쳐도 몇 ms 이른 것은 전부
+    // 헛방이 됐다 — 사람이 내는 오차의 절반이 통째로 벌을 받던 셈이다.
+    // preHit은 한 음표에 한 번만 — 연타로 미리 쌓아둘 수 없다.
+    if(state.nextIsOnset && !state.preHit &&
+       (nextTickAt - performance.now()) <= tickMs * EARLY_RATIO){
+      state.preHit = true;
+      registerHitOnset(xPct, state.nextOnsetElIdx);
+      return;
+    }
+
+    // 3) 카운트다운(예비 박자)이 아직 끝나기 전에 탭한 경우 — 곡이 진짜
     // 시작하기 전이라 벌칙 없이 그냥 무시한다. 예전엔 이때 탭하면 바로
     // 생명이 깎여서 "왜 시작하자마자 실수 처리되지?"로 혼란스러웠다.
     if(state.tickIndex < 0){
       showToast('아직이에요, 조금만 기다려요 ⏳', 500);
       return;
     }
-    if(state.pendingOnset && !state.pendingResolved){
-      registerHitOnset(xPct);
-    } else {
-      registerFalseShot(xPct);
-    }
+
+    // 4) 쉼표·음이 지속되는 구간에 친 것은 그대로 헛방이다.
+    registerFalseShot(xPct);
   }
 
-  function registerHitOnset(xPct){
-    state.pendingResolved = true;
+  // elIdxOverride가 있으면 아직 시작되지 않은 음표를 이르게 맞힌 경우다.
+  // 그때는 pendingResolved가 아니라 preHit으로 기록되므로 건드리지 않는다.
+  function registerHitOnset(xPct, elIdxOverride){
+    if(elIdxOverride === undefined) state.pendingResolved = true;
     state.combo++;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const gained = 10 + Math.min(state.combo, 10) * 2;
@@ -1018,7 +1037,7 @@
     if(navigator.vibrate) navigator.vibrate(18);
     const peakPct = launchFirework(xPct);
     scorePop(xPct, peakPct, `+${gained}`);
-    markCurrentBar('hit');
+    markCurrentBar('hit', elIdxOverride);
     if(state.combo > 0 && state.combo % 5 === 0){
       showToast(`콤보 ${state.combo}! 🔥`);
       celebrationBurst(xPct);
@@ -1045,9 +1064,26 @@
     }
   }
 
-  // 온셋 시작 틱부터 최대 이만큼 판정을 기다려준다 — 8분음표 연속처럼 다음
-  // 온셋이 더 일찍 오면 onTick에서 note.ticks로 그 전까지로 알아서 줄어든다.
-  const HIT_WINDOW_TICKS = 2;
+  // ---------- 판정 창 ----------
+  // 음표가 시작되는 순간을 기준으로 앞뒤 얼마나 봐줄지.
+  //
+  // 늦은 쪽: 다음 음표가 시작되기 전까지, 최대 HIT_WINDOW_TICKS 틱.
+  // 이른 쪽: 틱 길이의 EARLY_RATIO 만큼. 빠르기를 바꾸면 같이 줄고 늘어난다.
+  const HIT_WINDOW_TICKS = 3;
+  const EARLY_RATIO = 0.55;
+
+  // 이 온셋을 언제까지 기다려 줄지 — 다음 음표가 시작되기 직전까지다.
+  // 예전엔 음표 자신의 길이(note.ticks)로 잘랐는데, 그러면 4분음표 뒤에
+  // 쉼표가 와도 4분음표 길이에서 끊겼다. 쉼표 구간은 아무도 안 쓰므로
+  // 거기까지 더 봐줄 수 있다. 8분음표가 연달아 오면 저절로 1틱으로 줄어
+  // 다음 음표의 판정을 침범하지 않는다.
+  function lateWindowTicks(onsetTick){
+    for(let k = 1; k <= HIT_WINDOW_TICKS; k++){
+      const { offset, info } = currentElementAndOffset(onsetTick + k);
+      if(info.onset && offset === 0) return k;
+    }
+    return HIT_WINDOW_TICKS;
+  }
 
   function onTick(){
     // 이전 온셋의 판정 유예 시간이 끝났는데 아직 못 맞췄으면 여기서 놓친 것으로 처리.
@@ -1084,9 +1120,11 @@
           if(state.screen !== 'playing') return;
         }
         state.pendingOnset = true;
-        state.pendingResolved = false;
+        // 직전에 이르게 쳐서 이미 맞힌 온셋이면 여기서 바로 해결 처리한다.
+        state.pendingResolved = state.preHit;
+        state.preHit = false;
         state.pendingOnsetElIdx = elIdx;
-        state.pendingOnsetDeadlineTick = state.tickIndex + Math.min(HIT_WINDOW_TICKS, info.ticks);
+        state.pendingOnsetDeadlineTick = state.tickIndex + lateWindowTicks(state.tickIndex);
       }
       if(state.tickIndex === 0) showCountdown('시작!', true);
     } else {
@@ -1100,6 +1138,17 @@
         state.lastCountdownBeat = beatsLeft;
         showCountdown(String(beatsLeft));
       }
+    }
+    // 다음 틱이 새 음표의 시작인지 미리 기록해 둔다. 예비 박자 중에도
+    // 갱신해야 첫 음표를 이르게 친 것까지 인정된다(tickIndex가 -1일 때
+    // 다음 틱이 0번, 즉 첫 온셋이다).
+    const nt = state.tickIndex + 1;
+    if(nt >= 0 && nt < state.totalTicks){
+      const nxt = currentElementAndOffset(nt);
+      state.nextIsOnset = nxt.info.onset && nxt.offset === 0;
+      state.nextOnsetElIdx = nxt.elIdx;
+    } else {
+      state.nextIsOnset = false;
     }
   }
 
@@ -1161,6 +1210,8 @@
     state.tickIndex = -LEAD_IN_TICKS - 1;
     state.pendingOnset = false;
     state.pendingResolved = true;
+    state.preHit = false;
+    state.nextIsOnset = false;
     state.lastCountdownBeat = null;
     startOverlay.classList.add('hidden');
     overOverlay.classList.add('hidden');
@@ -1209,6 +1260,21 @@
       scheduleTick();
     }
   });
+
+  // 판정 창을 재려면 온셋 시각을 밖에서 알아야 한다. 운명 트레이싱의
+  // ?debug=1(window.__fate)과 같은 방식으로, 요청했을 때만 내부를 노출한다.
+  if(new URLSearchParams(location.search).get('debug') === '1'){
+    window.__fw = {
+      tap: xPct => launch(xPct === undefined ? 50 : xPct),
+      peek: () => ({
+        tickIndex: state.tickIndex, totalTicks: state.totalTicks,
+        lives: state.lives, misses: state.misses, score: state.score,
+        pending: state.pendingOnset && !state.pendingResolved,
+        nextIsOnset: state.nextIsOnset, preHit: state.preHit,
+        screen: state.screen, tickMs, msToNextTick: nextTickAt - performance.now(),
+      }),
+    };
+  }
 
   renderHUD();
 })();
