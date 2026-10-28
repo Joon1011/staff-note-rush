@@ -259,7 +259,7 @@ button:active{transform:scale(.97);}
     <h2>배울 음표</h2>
     <div class="rangeRow">
       <button class="pill on" data-range="basic">기본 · 온~8분음표</button>
-      <button class="pill" data-range="ext">확장 · 점4분·16분까지</button>
+      <button class="pill" data-range="ext">확장 · 점음표·16분까지</button>
     </div>
 
     <h2>가게 일</h2>
@@ -348,7 +348,11 @@ const ITEMS = [
   {id:'q',  kind:'note', name:'4분음표',  beats:1,   slices:4,  twin:'rq', color:'#3BA67B', hint:'한 판을 넷(4)으로 나눈 조각. 머리가 까맣게 채워졌어요.'},
   {id:'e',  kind:'note', name:'8분음표',  beats:0.5, slices:8,  twin:'re', color:'#3E7CB1', hint:'한 판을 여덟(8)으로 나눈 조각. 기둥에 꼬리가 하나!'},
   {id:'s',  kind:'note', name:'16분음표', beats:0.25,slices:16, twin:'rs', color:'#8E5BD1', hint:'열여섯(16)으로 나눈 조각. 꼬리가 둘! 꼬리가 늘수록 짧아져요.', ext:true},
-  {id:'dq', kind:'note', name:'점4분음표',beats:1.5, dotted:true, color:'#D1589A', hint:'4분음표 옆의 점은 "반만큼 더"라는 뜻. 1박 + 반박 = 한 박 반.', ext:true, noTwin:true},
+  // 점음표 — 점은 "반만큼 더". shape 는 점을 뺀 본래 모양, slices/span 은 조각 배우기에서 몇 조각 중 몇 조각을 묶어 보여줄지
+  {id:'dw', kind:'note', name:'점온음표', beats:6,   shape:'w', dotted:true, slices:2, span:2, color:'#E08A3C', hint:'온음표 옆의 점은 "반(2박)만큼 더". 4박 + 2박 = 6박, 피자 한 판 반이에요!', ext:true, noTwin:true},
+  {id:'dh', kind:'note', name:'점2분음표',beats:3,   shape:'h', dotted:true, slices:4, span:3, color:'#C94A5A', hint:'2분음표 옆의 점은 "반(1박)만큼 더". 2박 + 1박 = 3박.', ext:true, noTwin:true},
+  {id:'dq', kind:'note', name:'점4분음표',beats:1.5, shape:'q', dotted:true, slices:8, span:3, color:'#D1589A', hint:'4분음표 옆의 점은 "반(반박)만큼 더". 1박 + 반박 = 한 박 반.', ext:true, noTwin:true},
+  {id:'de', kind:'note', name:'점8분음표',beats:0.75,shape:'e', dotted:true, slices:16,span:3, color:'#7A6BD6', hint:'8분음표 옆의 점은 "반(반의 반박)만큼 더". 반박 + 반의 반박 = ¾박.', ext:true, noTwin:true},
   {id:'rw', kind:'rest', name:'온쉼표',   beats:4,   twin:'w',  tip:'무거워서 줄 아래에 매달렸어요'},
   {id:'rh', kind:'rest', name:'2분쉼표',  beats:2,   twin:'h',  tip:'모자처럼 줄 위에 올라앉았어요'},
   {id:'rq', kind:'rest', name:'4분쉼표',  beats:1,   twin:'q',  tip:'번개처럼 구불구불해요'},
@@ -376,7 +380,7 @@ const STAGES = [
   {id:'twin',    ic:'🍽️', nm:'쌍둥이 찾기', ds:'음표와 길이가 같은 쉼표를 찾아요', c:'#3BA67B',
     lv:[{nm:'1단계', ds:'음표→쉼표'}, {nm:'2단계', ds:'쉼표→음표'}, {nm:'3단계', ds:'섞어서'}]},
   {id:'math',    ic:'➕', nm:'더하기 빼기',  ds:'음표 길이를 더하고 빼요', c:'#8E5BD1',
-    lv:[{nm:'1단계', ds:'더하기'}, {nm:'2단계', ds:'빼기'}, {nm:'3단계', ds:'기호로 답'}]},
+    lv:[{nm:'1단계', ds:'더하기'}, {nm:'2단계', ds:'빼기'}, {nm:'3단계', ds:'섞어서'}]},
   {id:'fill',    ic:'🍕', nm:'한 판 채우기', ds:'음표와 쉼표로 4박을 꼭 맞게 채워요', c:'#F2A541',
     lv:[{nm:'1단계', ds:'쉬운 주문'}, {nm:'2단계', ds:'쉼표 주문'}, {nm:'3단계', ds:'어려운 주문'}]},
 ];
@@ -398,15 +402,16 @@ const inRange = it => !it.ext || progress.range === 'ext';
 // 유니코드 음표는 기기마다 모양이 달라서 직접 그린다. viewBox 0 0 60 80.
 function glyphInner(it){
   if(it.kind === 'note'){
-    const p = [];
-    if(it.id === 'w'){
+    const p = [], sh = it.shape || it.id;   // 점음표는 점을 뺀 본래 모양으로 그린다
+    if(sh === 'w'){
       p.push(`<ellipse cx="30" cy="50" rx="13" ry="8" transform="rotate(-12 30 50)" fill="none" stroke="currentColor" stroke-width="4.5"/>`);
+      if(it.dotted) p.push(`<circle cx="50" cy="50" r="3.2" fill="currentColor"/>`);
       return p.join('');
     }
-    const hollow = it.id === 'h';
+    const hollow = sh === 'h';
     p.push(`<ellipse cx="25" cy="62" rx="11" ry="7.5" transform="rotate(-20 25 62)" ${hollow ? 'fill="none" stroke="currentColor" stroke-width="3.5"' : 'fill="currentColor"'}/>`);
     p.push(`<line x1="34.5" y1="60" x2="34.5" y2="12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`);
-    const flags = it.id === 'e' ? 1 : it.id === 's' ? 2 : 0;
+    const flags = sh === 'e' ? 1 : sh === 's' ? 2 : 0;
     for(let k = 0; k < flags; k++){
       const y = 12 + k * 11;
       p.push(`<path d="M34.5 ${y} C 46 ${y+8}, 49 ${y+18}, 41 ${y+32}" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>`);
@@ -559,7 +564,7 @@ function startLearn(){
   learn = {n: 0, sel: null, twin: false};
   const cuts = ITEMS.filter(i => i.kind === 'note' && inRange(i));
   $('cutRow').innerHTML = cuts.map(i => {
-    const label = i.id === 'w' ? '통째로' : i.id === 'h' ? '반' : i.id === 'q' ? '넷' : i.id === 'e' ? '여덟' : i.id === 's' ? '열여섯' : '점음표';
+    const label = {w:'통째로', h:'반', q:'넷', e:'여덟', s:'열여섯', dw:'점온', dh:'점2분', dq:'점4분', de:'점8분'}[i.id];
     return `<button class="pill" data-cut="${i.id}">${label}</button>`;
   }).join('');
   $('learnPizza').innerHTML = pizzaSVG();
@@ -582,8 +587,8 @@ $('cutRow').addEventListener('click', e => {
 });
 function cutPizza(id){
   const it = BY[id];
-  // 점4분음표는 8조각 중 3조각을 한 묶음으로 보여준다
-  const n = it.slices || 8;
+  // 점음표는 slices 조각 중 span 조각을 한 묶음으로 보여준다 (점4분음표 = 8조각 중 3조각)
+  const n = it.slices;
   learn.cut = id; learn.n = n; learn.sel = null;
   const svg = $('learnPizza').querySelector('svg');
   const sl = svg.querySelector('.sliceLayer'), cl = svg.querySelector('.cutLayer');
@@ -595,7 +600,8 @@ function cutPizza(id){
   }
   sl.innerHTML = s; cl.innerHTML = c;
   $('lpName').textContent = n === 1 ? '피자 한 판을 눌러 보세요' : `${n}조각으로 잘랐어요. 하나를 눌러 보세요`;
-  $('lpBeats').textContent = ''; $('lpHint').textContent = it.id === 'dq' ? '8조각 중 3조각이 한 묶음이에요' : '';
+  $('lpBeats').textContent = '';
+  $('lpHint').textContent = it.id === 'dw' ? '한 판에 반 판을 더한 길이예요. 반 조각을 눌러 보세요' : it.span ? `${n}조각 중 ${it.span}조각이 한 묶음이에요` : '';
   $('lpGlyph').innerHTML = ''; $('lpDots').innerHTML = '';
   $('lpPlay').disabled = true; $('lpTwin').disabled = true;
   tone(300 + n * 40, .08, 'square', .1);
@@ -607,14 +613,13 @@ $('learnPizza').addEventListener('click', e => {
   const i = +p.dataset.i, n = learn.n;
   const svg = $('learnPizza').querySelector('svg');
   svg.querySelectorAll('.sl').forEach(x => x.classList.remove('on'));
-  const span = it.id === 'dq' ? 3 : 1;      // 점4분음표 = 8분 조각 3개
-  let midDeg = 0;
+  const span = it.span || 1;      // 점4분음표 = 8분 조각 3개
   for(let k = 0; k < span; k++){
     const idx = (i + k) % n;
     svg.querySelector(`.sl[data-i="${idx}"]`).classList.add('on');
   }
-  midDeg = (i + span / 2) * 360 / n;
-  svg.querySelector('.glyphLayer').innerHTML = n === 1 ? glyphAt(it, 0, 0, 56) : glyphAt(it, midDeg, n <= 2 ? 48 : 56, n >= 16 ? 24 : 34);
+  const midDeg = (i + span / 2) * 360 / n;
+  svg.querySelector('.glyphLayer').innerHTML = span >= n ? glyphAt(it, 0, 0, 56) : glyphAt(it, midDeg, n <= 2 ? 48 : 56, n >= 16 && span === 1 ? 24 : 34);
   learn.sel = it; learn.twin = false;
   showLearnItem(it);
   if(!progress.learnSeen.includes(it.id)){ progress.learnSeen.push(it.id); save(); updateLearnSeen(); }
@@ -715,51 +720,61 @@ function nextQ(){
 }
 
 /* ---- 더하기 빼기 ---- */
-// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서 + 답을 기호로. 3단계는 쉼표도 식에 들어간다.
+// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서(쉼표도 식에 들어간다).
+// 답은 문제마다 박자("2박") / 음표 이름("2분음표") / 음표 기호 중 하나로 묻는다.
 function mathCombos(lv){
   const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
   const src = lv === 3 ? ITEMS.filter(inRange) : notes;
   const ops = lv === 1 ? ['+'] : lv === 2 ? ['−'] : ['+', '−'];
+  const max = progress.range === 'ext' ? 6 : 4;                 // 확장에서는 점온음표(6박)까지
   const out = [];
   for(const a of src) for(const b of src) for(const op of ops){
     const res = op === '+' ? a.beats + b.beats : a.beats - b.beats;
-    if(res <= 1e-9 || res > 4 + 1e-9) continue;                 // 0박이 되거나 한 판(4박)을 넘으면 안 낸다
-    if(lv === 3 && !notes.some(n => Math.abs(n.beats - res) < 1e-9)) continue;   // 기호로 답할 수 있어야 한다
+    if(res <= 1e-9 || res > max + 1e-9) continue;               // 0박이 되거나 너무 길면 안 낸다
     out.push({a, b, op, res});
   }
   return out;
 }
 const eqHtml = (a, b, op, ans) => `<div class="eq">${glyphBox(a)}<span class="op">${op}</span>${glyphBox(b)}<span class="op">=</span><span class="qm">${ans}</span></div>`;
 const MATH_CHOICES = () => progress.range === 'ext'
-  ? [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
+  ? [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
   : [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
 function nextMath(){
   const lv = quiz.lv, combos = mathCombos(lv);
-  let c; do{ c = pick(combos); } while(combos.length > 1 && quiz.last && c.a === quiz.last.a && c.b === quiz.last.b && c.op === quiz.last.op);
+  const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
+  const noteFor = r => notes.find(n => Math.abs(n.beats - r) < 1e-9);
+  // 결과가 음표 하나와 같은 길이면 이름·기호로 묻고, 아니면(2박 반 같은 것) 박자로 묻는다.
+  // 세 형식이 고루 나오도록 셋 중 둘은 음표 길이가 되는 식에서 고른다.
+  const withNote = combos.filter(c => noteFor(c.res));
+  const pool = withNote.length && Math.random() < .67 ? withNote : combos;
+  let c; do{ c = pick(pool); } while(pool.length > 1 && quiz.last && c.a === quiz.last.a && c.b === quiz.last.b && c.op === quiz.last.op);
   quiz.last = c;
   const {a, b, op, res} = c;
   const la = beatsLabel(a.beats), lb = beatsLabel(b.beats), lr = beatsLabel(res);
   const line = `${a.name}(${la}) ${op} ${b.name}(${lb}) = ${lr}`;
-  let opts, key, miss;
-  if(lv < 3){
+  const answer = noteFor(res);
+  let fmts = answer ? ['name', 'glyph'] : ['beats'];
+  if(fmts.length > 1 && quiz.lastFmt) fmts = fmts.filter(f => f !== quiz.lastFmt);   // 같은 형식이 연달아 오지 않게
+  const fmt = pick(fmts); quiz.lastFmt = fmt;
+  let opts, key, miss, sub;
+  if(fmt === 'beats'){
     const pool = MATH_CHOICES().filter(v => Math.abs(v - res) > 1e-9).sort((x, y) => Math.abs(x - res) - Math.abs(y - res));
     const wrong = shuffle(pool.slice(0, 5)).slice(0, 3);
     opts = shuffle([res, ...wrong]).map(v => ({key: String(v), html: `<span class="lbl">${beatsLabel(v)}</span>`}));
     key = String(res); miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, lr)};
+    sub = op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?';
   } else {
-    const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
-    const answer = notes.find(n => Math.abs(n.beats - res) < 1e-9);
-    opts = shuffle([answer, ...distractors(answer, notes, 3)]).map(o => ({key: o.id, html: glyphBox(o)}));
+    const four = shuffle([answer, ...distractors(answer, notes, lv)]);
+    opts = four.map(o => ({key: o.id, html: fmt === 'name' ? `<span class="lbl">${o.name}</span>` : glyphBox(o)}));
     key = answer.id; miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, `${answer.name}<br><small class="hand">${lr}</small>`)};
+    sub = (op === '+' ? '합친 길이와 같은 음표는?' : '남은 길이와 같은 음표는?') + (fmt === 'name' ? ' (이름)' : ' (기호)');
   }
+  const fbAns = answer ? `${answer.name} (${lr})` : lr;
   quiz.q = {
     key, miss, play: () => playItem({kind: 'note', beats: res}),
     fbOk: `<div class="txt">딩동! ${line}<small>${op === '+' ? '두 길이를 합친 만큼 소리가 나요' : '뺀 만큼 남은 길이를 들려줘요'}</small></div>`,
-    fbBad: `<div class="txt">정답은 ${lr}<small>${line}</small></div>`,
+    fbBad: `<div class="txt">정답은 ${fbAns}<small>${line}</small></div>`,
   };
-  const sub = lv === 3
-    ? (op === '+' ? '합친 길이와 같은 음표는?' : '남은 길이와 같은 음표는?')
-    : (op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?');
   $('qBubble').innerHTML = `<div style="flex:1">${eqHtml(a, b, op, '?')}<div class="sub">${sub}</div></div>`;
   $('qOpts').innerHTML = opts.map(o => `<button class="opt" data-key="${o.key}">${o.html}</button>`).join('');
 }
@@ -807,6 +822,7 @@ const ORDERS = {
     {say:'4분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 'q') >= 2, fail:'4분음표가 2개 안 들어 있어요'},
     {say:'8분음표를<br>넣어 주세요', ok:s => cnt(s, 'e') >= 1, fail:'8분음표가 없어요'},
     {say:'점4분음표를<br>넣어 주세요', ok:s => cnt(s, 'dq') >= 1, fail:'점4분음표가 없어요', ext:true},
+    {say:'점2분음표를<br>넣어 주세요', ok:s => cnt(s, 'dh') >= 1, fail:'점2분음표가 없어요', ext:true},
   ],
   // 2단계 — 쉼표가 꼭 들어가는 주문
   2: [
@@ -825,6 +841,7 @@ const ORDERS = {
     {say:'2분음표 1개,<br>나머지는 8분음표로', ok:s => cnt(s, 'h') === 1 && s.every(x => x.id === 'h' || x.id === 'e'), fail:'2분음표 하나에 8분음표만 넣어요'},
     {say:'쉼표 2개 넣고<br>조각은 딱 4개로', ok:s => s.filter(x => x.kind === 'rest').length === 2 && s.length === 4, fail:'쉼표 2개, 조각 4개여야 해요'},
     {say:'점4분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 'dq') >= 2, fail:'점4분음표가 2개 안 들어 있어요', ext:true},
+    {say:'점8분음표를<br>넣어 주세요', ok:s => cnt(s, 'de') >= 1, fail:'점8분음표가 없어요', ext:true},
   ],
 };
 let fill = null;
@@ -832,7 +849,7 @@ const fillTotal = () => fill.slices.reduce((a, x) => a + x.beats, 0);
 function startFill(lv = 1){
   fill = {lv, orders: ORDERS[lv].filter(o => !o.ext || progress.range === 'ext'), idx: 0, slices: [], mistakes: 0, lock: false};
   $('fillPizza').innerHTML = pizzaSVG();
-  const tray = ITEMS.filter(inRange);
+  const tray = ITEMS.filter(i => inRange(i) && i.beats <= 4);   // 점온음표(6박)는 한 판에 안 들어간다
   $('tray').innerHTML = tray.map(i => `<button class="tcard" data-id="${i.id}">${glyphBox(i)}<div class="nm">${i.name}</div><div class="bt">${beatsLabel(i.beats)}</div></button>`).join('');
   showView('fill'); renderOrder();
 }
