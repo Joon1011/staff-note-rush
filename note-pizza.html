@@ -350,7 +350,6 @@ const ITEMS = [
   {id:'s',  kind:'note', name:'16분음표', beats:0.25,slices:16, twin:'rs', color:'#8E5BD1', hint:'열여섯(16)으로 나눈 조각. 꼬리가 둘! 꼬리가 늘수록 짧아져요.', ext:true},
   // 점음표 — 점은 "반만큼 더". shape 는 점을 뺀 본래 모양, slices/span 은 조각 배우기에서 몇 조각 중 몇 조각을 묶어 보여줄지
   {id:'dw', kind:'note', name:'점온음표', beats:6,   shape:'w', dotted:true, slices:2, span:2, color:'#E08A3C', hint:'온음표 옆의 점은 "반(2박)만큼 더". 4박 + 2박 = 6박, 피자 한 판 반이에요!', ext:true, noTwin:true},
-  {id:'dh', kind:'note', name:'점2분음표',beats:3,   shape:'h', dotted:true, slices:4, span:3, color:'#C94A5A', hint:'2분음표 옆의 점은 "반(1박)만큼 더". 2박 + 1박 = 3박.', ext:true, noTwin:true},
   {id:'dq', kind:'note', name:'점4분음표',beats:1.5, shape:'q', dotted:true, slices:8, span:3, color:'#D1589A', hint:'4분음표 옆의 점은 "반(반박)만큼 더". 1박 + 반박 = 한 박 반.', ext:true, noTwin:true},
   {id:'de', kind:'note', name:'점8분음표',beats:0.75,shape:'e', dotted:true, slices:16,span:3, color:'#7A6BD6', hint:'8분음표 옆의 점은 "반(반의 반박)만큼 더". 반박 + 반의 반박 = ¾박.', ext:true, noTwin:true},
   {id:'rw', kind:'rest', name:'온쉼표',   beats:4,   twin:'w',  tip:'무거워서 줄 아래에 매달렸어요'},
@@ -564,7 +563,7 @@ function startLearn(){
   learn = {n: 0, sel: null, twin: false};
   const cuts = ITEMS.filter(i => i.kind === 'note' && inRange(i));
   $('cutRow').innerHTML = cuts.map(i => {
-    const label = {w:'통째로', h:'반', q:'넷', e:'여덟', s:'열여섯', dw:'점온', dh:'점2분', dq:'점4분', de:'점8분'}[i.id];
+    const label = {w:'통째로', h:'반', q:'넷', e:'여덟', s:'열여섯', dw:'점온', dq:'점4분', de:'점8분'}[i.id];
     return `<button class="pill" data-cut="${i.id}">${label}</button>`;
   }).join('');
   $('learnPizza').innerHTML = pizzaSVG();
@@ -667,12 +666,12 @@ function quizPool(stage, lv){
   }
   return lv === 1 ? notes : lv === 2 ? rests : items;
 }
-// 보기 3개. 3단계는 길이가 가까운(헷갈리는) 것 둘 + 아무거나 하나
+// 보기 3개. 3단계는 길이가 가장 가까운(헷갈리는) 것 하나 + 아무거나 둘
 function distractors(answer, cands, lv){
   const others = cands.filter(o => o !== answer);
   if(lv < 3) return shuffle(others).slice(0, 3);
   const near = others.slice().sort((a, b) => Math.abs(Math.log2(a.beats / answer.beats)) - Math.abs(Math.log2(b.beats / answer.beats)));
-  return shuffle(near.slice(0, 2)).concat(shuffle(near.slice(2)).slice(0, 1));
+  return [near[0]].concat(shuffle(near.slice(1)).slice(0, 2));
 }
 function startQuiz(stage, lv){
   quiz = {stage, lv, n: 0, total: 10, correct: 0, misses: [], last: null, lock: false};
@@ -720,24 +719,25 @@ function nextQ(){
 }
 
 /* ---- 더하기 빼기 ---- */
-// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서(쉼표도 식에 들어간다).
+// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서. 식에는 음표만 들어간다(쉼표 길이 더하기는 초·중학생에게 어렵다).
 // 답은 문제마다 박자("2박") / 음표 이름("2분음표") / 음표 기호 중 하나로 묻는다.
+// 결과는 반박 단위이거나 음표 하나의 길이(¼박·¾박)여야 한다 — "1박¼" 같은 길이는 안 낸다.
+const niceBeats = r => Math.abs(r * 2 - Math.round(r * 2)) < 1e-9 || ITEMS.some(i => i.kind === 'note' && inRange(i) && Math.abs(i.beats - r) < 1e-9);
 function mathCombos(lv){
   const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
-  const src = lv === 3 ? ITEMS.filter(inRange) : notes;
   const ops = lv === 1 ? ['+'] : lv === 2 ? ['−'] : ['+', '−'];
   const max = progress.range === 'ext' ? 6 : 4;                 // 확장에서는 점온음표(6박)까지
   const out = [];
-  for(const a of src) for(const b of src) for(const op of ops){
+  for(const a of notes) for(const b of notes) for(const op of ops){
     const res = op === '+' ? a.beats + b.beats : a.beats - b.beats;
-    if(res <= 1e-9 || res > max + 1e-9) continue;               // 0박이 되거나 너무 길면 안 낸다
+    if(res <= 1e-9 || res > max + 1e-9 || !niceBeats(res)) continue;   // 0박이 되거나 너무 길거나 어색한 길이면 안 낸다
     out.push({a, b, op, res});
   }
   return out;
 }
 const eqHtml = (a, b, op, ans) => `<div class="eq">${glyphBox(a)}<span class="op">${op}</span>${glyphBox(b)}<span class="op">=</span><span class="qm">${ans}</span></div>`;
 const MATH_CHOICES = () => progress.range === 'ext'
-  ? [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+  ? [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6]
   : [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
 function nextMath(){
   const lv = quiz.lv, combos = mathCombos(lv);
@@ -753,17 +753,22 @@ function nextMath(){
   const la = beatsLabel(a.beats), lb = beatsLabel(b.beats), lr = beatsLabel(res);
   const line = `${a.name}(${la}) ${op} ${b.name}(${lb}) = ${lr}`;
   const answer = noteFor(res);
-  // 보기 4개는 길이가 서로 다른 값이고, 보기마다 박자("2박") / 음표 이름 / 음표 기호 중 하나로 보여준다.
-  // 정답은 값으로 판정하니 어떤 형식으로 나와도 맞출 수 있다. 이름·기호는 그 길이의 음표가 있을 때만 쓴다.
-  const near = MATH_CHOICES().filter(v => Math.abs(v - res) > 1e-9).sort((x, y) => Math.abs(x - res) - Math.abs(y - res));
-  const values = shuffle([res, ...shuffle(near.slice(0, 5)).slice(0, 3)]);
-  const fmtPlan = shuffle(['beats', 'name', 'glyph', pick(['beats', 'name', 'glyph'])]);
-  const opts = values.map((v, i) => {
-    const n = noteFor(v), fmt = n ? fmtPlan[i] : 'beats';
-    const html = fmt === 'glyph' ? glyphBox(n) : `<span class="lbl">${fmt === 'name' ? n.name : beatsLabel(v)}</span>`;
-    return {key: String(v), html};
-  });
-  const key = String(res);
+  // 문제마다 형식 하나 — 박자 문제 / 음표 이름 문제 / 음표 기호 문제. 보기 4개는 같은 형식이다.
+  // 결과가 음표 하나의 길이면 이름·기호 문제로, 아니면(2박 반 같은 것) 박자 문제로 낸다. 같은 형식이 연달아 오지 않게 한다.
+  let fmts = answer ? ['name', 'glyph'] : ['beats'];
+  if(fmts.length > 1 && quiz.lastFmt) fmts = fmts.filter(f => f !== quiz.lastFmt);
+  const fmt = pick(fmts); quiz.lastFmt = fmt;
+  let opts, key, sub;
+  if(fmt === 'beats'){
+    const near = MATH_CHOICES().filter(v => Math.abs(v - res) > 1e-9).sort((x, y) => Math.abs(x - res) - Math.abs(y - res));
+    opts = shuffle([res, ...shuffle(near.slice(0, 5)).slice(0, 3)]).map(v => ({key: String(v), html: `<span class="lbl">${beatsLabel(v)}</span>`}));
+    key = String(res);
+    sub = op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?';
+  } else {
+    opts = shuffle([answer, ...distractors(answer, notes, lv)]).map(o => ({key: o.id, html: fmt === 'name' ? `<span class="lbl">${o.name}</span>` : glyphBox(o)}));
+    key = answer.id;
+    sub = (op === '+' ? '합친 길이와 같은 음표는?' : '남은 길이와 같은 음표는?') + (fmt === 'name' ? ' (이름)' : ' (기호)');
+  }
   const miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, answer ? `${answer.name}<br><small class="hand">${lr}</small>` : lr)};
   const fbAns = answer ? `${answer.name} (${lr})` : lr;
   quiz.q = {
@@ -771,7 +776,6 @@ function nextMath(){
     fbOk: `<div class="txt">딩동! ${line}<small>${op === '+' ? '두 길이를 합친 만큼 소리가 나요' : '뺀 만큼 남은 길이를 들려줘요'}</small></div>`,
     fbBad: `<div class="txt">정답은 ${fbAns}<small>${line}</small></div>`,
   };
-  const sub = op === '+' ? '둘을 합치면 얼마? 박·이름·기호 중에서 골라요' : '긴 것에서 짧은 것을 빼면 얼마가 남을까? 박·이름·기호 중에서 골라요';
   $('qBubble').innerHTML = `<div style="flex:1">${eqHtml(a, b, op, '?')}<div class="sub">${sub}</div></div>`;
   $('qOpts').innerHTML = opts.map(o => `<button class="opt" data-key="${o.key}">${o.html}</button>`).join('');
 }
@@ -819,7 +823,6 @@ const ORDERS = {
     {say:'4분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 'q') >= 2, fail:'4분음표가 2개 안 들어 있어요'},
     {say:'8분음표를<br>넣어 주세요', ok:s => cnt(s, 'e') >= 1, fail:'8분음표가 없어요'},
     {say:'점4분음표를<br>넣어 주세요', ok:s => cnt(s, 'dq') >= 1, fail:'점4분음표가 없어요', ext:true},
-    {say:'점2분음표를<br>넣어 주세요', ok:s => cnt(s, 'dh') >= 1, fail:'점2분음표가 없어요', ext:true},
   ],
   // 2단계 — 쉼표가 꼭 들어가는 주문
   2: [
