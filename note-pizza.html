@@ -106,8 +106,12 @@ button:active{transform:scale(.97);}
 .bar .r{margin-left:auto;font-family:'Gaegu',cursive;font-weight:700;color:var(--dim);font-size:.95rem;}
 
 /* ---- 피자 ---- */
-.pizzaWrap{display:flex;justify-content:center;margin:4px 0 8px;}
+.pizzaWrap{display:flex;justify-content:center;align-items:center;gap:6px;margin:4px 0 8px;}
 .pizzaWrap svg{width:min(68vw,280px);height:auto;display:block;filter:drop-shadow(0 4px 0 rgba(0,0,0,.08));}
+/* 점온음표 = 한 판 + 반 판, 그림 둘 */
+.pizzaWrap.two svg{width:min(38vw,170px);}
+.pizzaWrap.two svg.half{width:min(19vw,85px);}
+.pizzaWrap .plus{font-size:2rem;color:var(--tomato);line-height:1;}
 .pizzaWrap.shake svg{animation:shake .4s;}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
 .sl{fill:rgba(255,255,255,0);stroke:none;cursor:pointer;}
@@ -448,15 +452,21 @@ function sector(a0, a1, r = R){
   const large = a1 - a0 > 180 ? 1 : 0;
   return `M${CX} ${CY} L${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
 }
-function pizzaSVG(){
+let clipSeq = 0;
+// half=true 면 오른쪽 반 판만 그린다 (점온음표의 "반 판 더")
+function pizzaSVG(half = false){
   const tops = [[66,70],[126,62],[140,118],[82,136],[108,98],[60,110],[120,145]].map(([x,y]) =>
     `<circle cx="${x}" cy="${y}" r="8" fill="#B83A2E"/><circle cx="${x-2}" cy="${y-2}" r="2.2" fill="#d9574a"/>`).join('');
   const basil = [[95,70],[135,95],[75,105]].map(([x,y]) => `<ellipse cx="${x}" cy="${y}" rx="7" ry="4" transform="rotate(-30 ${x} ${y})" fill="#4E9A51"/>`).join('');
-  return `<svg viewBox="0 0 200 200">
-    <circle cx="${CX}" cy="${CY}" r="${R}" fill="#D89B55"/>
-    <circle cx="${CX}" cy="${CY}" r="82" fill="#E0553A"/>
-    <circle cx="${CX}" cy="${CY}" r="78" fill="#F7D266"/>
-    ${tops}${basil}
+  const id = 'halfClip' + (++clipSeq);
+  const clip = half ? `<clipPath id="${id}"><path d="${sector(0, 180)}"/></clipPath>` : '';
+  return `<svg viewBox="${half ? '100 0 100 200' : '0 0 200 200'}" class="${half ? 'half' : ''}">${clip}
+    <g ${half ? `clip-path="url(#${id})"` : ''}>
+      <circle cx="${CX}" cy="${CY}" r="${R}" fill="#D89B55"/>
+      <circle cx="${CX}" cy="${CY}" r="82" fill="#E0553A"/>
+      <circle cx="${CX}" cy="${CY}" r="78" fill="#F7D266"/>
+      ${tops}${basil}
+    </g>
     <g class="sliceLayer"></g><g class="cutLayer"></g><g class="glyphLayer"></g>
   </svg>`;
 }
@@ -567,7 +577,7 @@ function startLearn(){
     const label = {w:'통째로', h:'반', q:'넷', e:'여덟', s:'열여섯', dw:'점온', dh:'점2분', dq:'점4분', de:'점8분'}[i.id];
     return `<button class="pill" data-cut="${i.id}">${label}</button>`;
   }).join('');
-  $('learnPizza').innerHTML = pizzaSVG();
+  $('learnPizza').innerHTML = pizzaSVG(); $('learnPizza').classList.remove('two');
   $('lpGlyph').innerHTML = ''; $('lpName').textContent = '조각을 눌러 보세요';
   $('lpBeats').textContent = ''; $('lpHint').textContent = '위에서 자르는 방법을 고르고, 피자 조각을 톡!';
   $('lpDots').innerHTML = ''; $('lpPlay').disabled = true; $('lpTwin').disabled = true;
@@ -590,9 +600,26 @@ function cutPizza(id){
   // 점음표는 slices 조각 중 span 조각을 한 묶음으로 보여준다 (점4분음표 = 8조각 중 3조각)
   const n = it.slices;
   learn.cut = id; learn.n = n; learn.sel = null;
-  const svg = $('learnPizza').querySelector('svg');
+  const wrap = $('learnPizza');
+  wrap.classList.toggle('two', it.id === 'dw');
+  if(it.id === 'dw'){
+    // 점온음표 = 한 판(4박) + 반 판(2박). 한 판에 다 안 들어가니 그림을 둘로 나눈다
+    wrap.innerHTML = pizzaSVG() + `<div class="plus">+</div>` + pizzaSVG(true);
+    const [full, half] = wrap.querySelectorAll('svg');
+    full.querySelector('.sliceLayer').innerHTML = `<path class="sl" data-i="0" d="${sector(0, 360)}"/>`;
+    half.querySelector('.sliceLayer').innerHTML = `<path class="sl" data-i="0" d="${sector(0, 180)}"/>`;
+    half.querySelector('.cutLayer').innerHTML = `<line class="cut" x1="${CX}" y1="${CY - R}" x2="${CX}" y2="${CY + R}"/>`;
+    $('lpName').textContent = '한 판과 반 판이에요. 눌러 보세요';
+    $('lpBeats').textContent = '';
+    $('lpHint').textContent = '한 판(4박)에 반 판(2박)을 더한 길이예요';
+    $('lpGlyph').innerHTML = ''; $('lpDots').innerHTML = '';
+    $('lpPlay').disabled = true; $('lpTwin').disabled = true;
+    tone(380, .08, 'square', .1);
+    return;
+  }
+  wrap.innerHTML = pizzaSVG();
+  const svg = wrap.querySelector('svg');
   const sl = svg.querySelector('.sliceLayer'), cl = svg.querySelector('.cutLayer');
-  svg.querySelector('.glyphLayer').innerHTML = '';
   let s = '', c = '';
   for(let i = 0; i < n; i++){
     s += `<path class="sl" data-i="${i}" d="${sector(i * 360 / n, (i + 1) * 360 / n)}"/>`;
@@ -601,7 +628,7 @@ function cutPizza(id){
   sl.innerHTML = s; cl.innerHTML = c;
   $('lpName').textContent = n === 1 ? '피자 한 판을 눌러 보세요' : `${n}조각으로 잘랐어요. 하나를 눌러 보세요`;
   $('lpBeats').textContent = '';
-  $('lpHint').textContent = it.id === 'dw' ? '한 판에 반 판을 더한 길이예요. 반 조각을 눌러 보세요' : it.span ? `${n}조각 중 ${it.span}조각이 한 묶음이에요` : '';
+  $('lpHint').textContent = it.span ? `${n}조각 중 ${it.span}조각이 한 묶음이에요` : '';
   $('lpGlyph').innerHTML = ''; $('lpDots').innerHTML = '';
   $('lpPlay').disabled = true; $('lpTwin').disabled = true;
   tone(300 + n * 40, .08, 'square', .1);
@@ -611,6 +638,17 @@ $('learnPizza').addEventListener('click', e => {
   buzz();
   const it = BY[learn.cut];
   const i = +p.dataset.i, n = learn.n;
+  if(it.id === 'dw'){
+    // 두 그림을 다 켜고, 한 판엔 온음표·반 판엔 2분음표를 올린다
+    const [full, half] = $('learnPizza').querySelectorAll('svg');
+    $('learnPizza').querySelectorAll('.sl').forEach(x => x.classList.add('on'));
+    full.querySelector('.glyphLayer').innerHTML = glyphAt(BY.w, 0, 0, 56);
+    half.querySelector('.glyphLayer').innerHTML = glyphAt(BY.h, 90, 48, 44);
+    learn.sel = it; learn.twin = false;
+    showLearnItem(it);
+    if(!progress.learnSeen.includes(it.id)){ progress.learnSeen.push(it.id); save(); updateLearnSeen(); }
+    return;
+  }
   const svg = $('learnPizza').querySelector('svg');
   svg.querySelectorAll('.sl').forEach(x => x.classList.remove('on'));
   const span = it.span || 1;      // 점4분음표 = 8분 조각 3개
