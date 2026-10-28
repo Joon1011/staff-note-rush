@@ -335,9 +335,10 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
       <span>🏆 최고 점수 랭킹</span>
       <span></span>
     </div>
-    <p class="lede">도전 모드 점수만 올라가요. 딱 맞음 10점, 거의 맞음 5점, 최고 연속 1번에 2점.<br>단계와 빠르기가 높을수록 점수가 더 붙어요. 기록은 이 기기에만 저장돼요.</p>
+    <p class="lede">단계마다 따로 매겨요. 도전 모드 점수만 올라가요.<br>딱 맞음 10점, 거의 맞음 5점, 최고 연속 1번에 2점. 빠를수록 점수가 더 붙어요. 기록은 이 기기에만 저장돼요.</p>
+    <div class="levels" id="rankTabs"></div>
     <ol class="rankList" id="rankList"></ol>
-    <button class="bigBtn ghost" id="rankClear" style="margin-top:14px;">기록 지우기</button>
+    <button class="bigBtn ghost" id="rankClear" style="margin-top:14px;">이 단계 기록 지우기</button>
   </div>
 
 </div>
@@ -771,34 +772,43 @@ function finish(){
   show('result');
 }
 
-/* ========== 랭킹 (이 기기의 localStorage, 상위 10개) ========== */
-const RANK_KEY='fruitRhythmRanking_v1', NAME_KEY='fruitRhythmName_v1', RANK_MAX=10;
-let pending=null, lastSaved=null;
-function loadRank(){ try{ const a=JSON.parse(localStorage.getItem(RANK_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-function saveRank(a){ try{ localStorage.setItem(RANK_KEY, JSON.stringify(a)); }catch(e){} }
-// 단계·빠르기가 높을수록 같은 연주라도 점수가 더 붙는다 (4단계·빠르게 = ×2.6)
-function calcScore(){ return Math.round((idxPerfect*10 + idxGood*5 + maxCombo*2) * (1+level*.25) * (1+tempo*.25)); }
-function qualifies(score){ const r=loadRank(); return score>0 && (r.length<RANK_MAX || score>r[r.length-1].score); }
+/* ========== 랭킹 (이 기기의 localStorage, 단계마다 상위 10개) ========== */
+// v2: 단계별로 나뉜다. { "0":[...], "1":[...], ... } — 단계 인덱스가 키
+const RANK_KEY='fruitRhythmRanking_v2', NAME_KEY='fruitRhythmName_v1', RANK_MAX=10;
+let pending=null, lastSaved=null, rankTab=0;
+function loadAll(){ try{ const o=JSON.parse(localStorage.getItem(RANK_KEY)||'{}'); return o && typeof o==='object' && !Array.isArray(o) ? o : {}; }catch(e){ return {}; } }
+function loadRank(lv){ const a=loadAll()[lv]; return Array.isArray(a)?a:[]; }
+function saveRank(lv, a){ const o=loadAll(); o[lv]=a; try{ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }catch(e){} }
+// 단계는 랭킹판이 따로라 가산하지 않는다. 빠르기만 — 빠르게 = ×1.5
+function calcScore(){ return Math.round((idxPerfect*10 + idxGood*5 + maxCombo*2) * (1+tempo*.25)); }
+function qualifies(score){ const r=loadRank(level); return score>0 && (r.length<RANK_MAX || score>r[r.length-1].score); }
 const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function renderRank(hl){
-  const r=loadRank();
+  const tabs=$('rankTabs'); tabs.innerHTML='';
+  LEVELS.forEach((L,i)=>{
+    const b=document.createElement('button');
+    b.className='lvBtn'+(i===rankTab?' on':''); b.textContent=L.n;
+    b.onclick=()=>{ rankTab=i; renderRank(hl); };
+    tabs.appendChild(b);
+  });
+  const r=loadRank(rankTab);
   $('rankList').innerHTML = r.length ? r.map((e,i)=>
     `<li class="${hl && e.t===hl.t ? 'me' : ''}">
       <span class="rankNum">${i+1}</span>
       <span class="rankName">${esc(e.name)}</span>
-      <span class="rankTag">${(LEVELS[e.lv]||{}).n||''} · ${(TEMPOS[e.tp]||{}).n||''} · ${e.pct}%</span>
+      <span class="rankTag">${(TEMPOS[e.tp]||{}).n||''} · ${e.pct}%</span>
       <span class="rankScore">${e.score}점</span>
     </li>`).join('')
-    : '<li class="rankEmpty">아직 기록이 없어요.<br>도전 모드로 첫 기록을 남겨요!</li>';
+    : `<li class="rankEmpty">${LEVELS[rankTab].n} 기록이 아직 없어요.<br>도전 모드로 첫 기록을 남겨요!</li>`;
 }
 function renderBest(){
-  const r=loadRank();
-  $('bestLine').textContent = r.length ? `🏆 최고 ${r[0].score}점 · ${r[0].name}` : '도전 모드 점수가 랭킹에 올라가요';
+  const r=loadRank(level), L=LEVELS[level].n;
+  $('bestLine').textContent = r.length ? `🏆 ${L} 최고 ${r[0].score}점 · ${r[0].name}` : `${L} 도전 점수가 랭킹에 올라가요`;
 }
 function offerRank(score, pct){
   pending={name:'', score, pct, lv:level, tp:tempo, t:Date.now()};
-  const pos = loadRank().filter(e=>e.score>=score).length+1;
-  $('rankQ').textContent = `${pos}위에 들었어요! 이름을 남길까요?`;
+  const pos = loadRank(level).filter(e=>e.score>=score).length+1;
+  $('rankQ').textContent = `${LEVELS[level].n} ${pos}위에 들었어요! 이름을 남길까요?`;
   try{ $('rankName').value = localStorage.getItem(NAME_KEY)||''; }catch(e){}
   $('rankForm').hidden=false;
 }
@@ -806,19 +816,21 @@ $('rankSave').onclick = ()=>{
   if(!pending) return;
   const name=($('rankName').value.trim()||'이름없음').slice(0,10);
   pending.name=name; try{ localStorage.setItem(NAME_KEY,name); }catch(e){}
-  const r=loadRank(); r.push(pending);
+  const lv=pending.lv, r=loadRank(lv); r.push(pending);
   r.sort((a,b)=>b.score-a.score || a.t-b.t);
-  const kept=r.slice(0,RANK_MAX); saveRank(kept);
+  const kept=r.slice(0,RANK_MAX); saveRank(lv, kept);
   $('rankForm').hidden=true;
-  $('rankSaved').hidden=false; $('rankSaved').textContent=`${kept.indexOf(pending)+1}위로 등록했어요 🏆`;
+  $('rankSaved').hidden=false; $('rankSaved').textContent=`${LEVELS[lv].n} ${kept.indexOf(pending)+1}위로 등록했어요 🏆`;
   lastSaved=pending; pending=null;
 };
 $('rankSkip').onclick = ()=>{ pending=null; $('rankForm').hidden=true; };
 $('rankName').addEventListener('keydown', e=>{ if(e.key==='Enter') $('rankSave').click(); });
-$('showRank').onclick = ()=>{ renderRank(null); show('rank'); };
-$('resRank').onclick = ()=>{ renderRank(lastSaved); show('rank'); };
+$('showRank').onclick = ()=>{ rankTab=level; renderRank(null); show('rank'); };
+$('resRank').onclick = ()=>{ rankTab=lastSaved ? lastSaved.lv : level; renderRank(lastSaved); show('rank'); };
 $('rankBack').onclick = ()=>{ practiceId=null; renderHome(); show('home'); };
-$('rankClear').onclick = ()=>{ if(loadRank().length && confirm('랭킹 기록을 모두 지울까요?')){ saveRank([]); lastSaved=null; renderRank(null); } };
+$('rankClear').onclick = ()=>{
+  if(loadRank(rankTab).length && confirm(`${LEVELS[rankTab].n} 랭킹 기록을 모두 지울까요?`)){ saveRank(rankTab, []); lastSaved=null; renderRank(null); }
+};
 $('quit').onclick = ()=>{ stop(); show('home'); };
 $('retry').onclick = ()=> startGame(practiceId);
 $('toHome').onclick = ()=>{ practiceId=null; show('home'); renderHome(); };
