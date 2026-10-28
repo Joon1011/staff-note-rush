@@ -85,9 +85,18 @@ button:active{transform:scale(.97);}
 .stage .tx{flex:1;min-width:0;}
 .stage .nm{font-size:1.05rem;line-height:1.15;}
 .stage .ds{font-family:'Gaegu',cursive;font-weight:700;font-size:.92rem;color:var(--dim);}
-.stage .st{margin-left:auto;color:var(--cheese);font-size:1rem;letter-spacing:1px;white-space:nowrap;
-  text-shadow:0 0 1px #b58a1a;}
+.stage .st{color:var(--cheese);font-size:.82rem;letter-spacing:1px;white-space:nowrap;text-shadow:0 0 1px #b58a1a;}
 .stage .st.none{color:var(--line);text-shadow:none;}
+/* 단계 버튼 — 카드 안에 1·2·3단계가 나란히 */
+.lvRow{display:flex;gap:6px;margin-top:7px;}
+.lv{
+  flex:1;min-width:0;background:var(--paper);border:2px solid var(--line);border-radius:10px;
+  padding:5px 3px 4px;min-height:48px;display:flex;flex-direction:column;align-items:center;gap:1px;
+}
+.lv .ln{font-size:.85rem;line-height:1.1;white-space:nowrap;}
+.lv .ld{font-family:'Gaegu',cursive;font-weight:700;font-size:.72rem;color:var(--dim);line-height:1.1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.lv.done{border-color:var(--c,var(--crust));background:#fff;}
 .foot{margin-top:14px;font-family:'Gaegu',cursive;font-weight:700;color:var(--dim);font-size:.9rem;line-height:1.5;}
 
 /* ---- 공통 제목줄 ---- */
@@ -162,6 +171,16 @@ button:active{transform:scale(.97);}
 .bubble .glyph svg{width:100%;height:100%;}
 .bubble .say{font-size:1.25rem;line-height:1.25;}
 .bubble .sub{font-family:'Gaegu',cursive;font-weight:700;color:var(--dim);font-size:.95rem;}
+/* 더하기 빼기 — 말풍선 안의 식 */
+.eq{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.eq .glyph{width:40px;height:54px;flex-shrink:0;color:var(--ink);}
+.eq .glyph svg{width:100%;height:100%;}
+.eq .op{font-size:1.5rem;line-height:1;color:var(--tomato);}
+.eq .qm{font-size:1.5rem;line-height:1;background:#FFF2C9;border:2px dashed var(--crust);border-radius:10px;padding:4px 10px;}
+.opt .lbl{font-size:1.1rem;}
+.miss .eq .glyph{width:26px;height:35px;}
+.miss .eq .op{font-size:1.1rem;}
+.miss .eq .qm{font-size:.95rem;padding:2px 6px;border-width:1.5px;}
 .spk{background:#fff;border:2px solid var(--line);border-radius:99px;width:40px;height:40px;font-size:1.1rem;flex-shrink:0;}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
 .opt{
@@ -246,7 +265,7 @@ button:active{transform:scale(.97);}
     <h2>가게 일</h2>
     <div class="stages" id="stageList"></div>
 
-    <p class="foot">실패 없이 천천히 해요. 틀리면 정답을 보여주고 소리도 들려줘요.<br>별은 이 기기에만 저장돼요.</p>
+    <p class="foot">실패 없이 천천히 해요. 틀리면 정답을 보여주고 소리도 들려줘요.<br>가게 일마다 1·2·3단계가 있어요. 별은 이 기기에만 저장돼요.</p>
   </div>
 
   <!-- 조각 배우기 -->
@@ -305,6 +324,7 @@ button:active{transform:scale(.97);}
       <div class="msg" id="resMsg"></div>
       <p class="lede" id="resSub" style="margin-top:6px"></p>
       <div class="misses" id="resMisses"></div>
+      <button class="bigBtn" id="resNext" hidden>다음 단계 →</button>
       <button class="bigBtn" id="resRetry">다시 하기</button>
       <button class="btn soft" id="resHome" style="width:100%;margin-top:8px">가게로 돌아가기</button>
     </div>
@@ -337,22 +357,41 @@ const ITEMS = [
 ];
 const BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 const BEAT_LABEL = {4:'4박', 2:'2박', 1:'1박', 0.5:'반박', 0.25:'반의 반박', 1.5:'한 박 반'};
-const beatsLabel = b => BEAT_LABEL[b] || (b + '박');
+// 더하기 빼기에서는 2박 반, ¾박 같은 길이도 나온다
+function beatsLabel(b){
+  if(BEAT_LABEL[b]) return BEAT_LABEL[b];
+  const whole = Math.floor(b + 1e-9), frac = Math.round((b - whole) * 4);
+  const f = ['', '¼', ' 반', '¾'][frac];
+  if(!whole) return f.trim() + '박';
+  return whole + '박' + f;
+}
 
 const STAGES = [
-  {id:'learn',   ic:'🔪', nm:'조각 배우기', ds:'피자를 잘라 보면 음표가 나와요', c:'#D89B55'},
-  {id:'order',   ic:'🧾', nm:'주문 받기',   ds:'손님이 든 기호를 보고 이름을 골라요', c:'#E0553A'},
-  {id:'reverse', ic:'🗣️', nm:'거꾸로 주문', ds:'이름을 듣고 맞는 기호를 골라요', c:'#3E7CB1'},
-  {id:'twin',    ic:'🍽️', nm:'쌍둥이 찾기', ds:'음표와 길이가 같은 쉼표를 찾아요', c:'#3BA67B'},
-  {id:'fill',    ic:'🍕', nm:'한 판 채우기', ds:'음표와 쉼표로 4박을 꼭 맞게 채워요', c:'#F2A541'},
+  {id:'learn',   ic:'🔪', nm:'조각 배우기', ds:'피자를 잘라 보면 음표가 나와요', c:'#D89B55',
+    lv:[{nm:'들어가기', ds:'자유롭게'}]},
+  {id:'order',   ic:'🧾', nm:'주문 받기',   ds:'손님이 든 기호를 보고 이름을 골라요', c:'#E0553A',
+    lv:[{nm:'1단계', ds:'음표만'}, {nm:'2단계', ds:'쉼표만'}, {nm:'3단계', ds:'헷갈리는 것'}]},
+  {id:'reverse', ic:'🗣️', nm:'거꾸로 주문', ds:'이름을 듣고 맞는 기호를 골라요', c:'#3E7CB1',
+    lv:[{nm:'1단계', ds:'음표만'}, {nm:'2단계', ds:'쉼표만'}, {nm:'3단계', ds:'헷갈리는 것'}]},
+  {id:'twin',    ic:'🍽️', nm:'쌍둥이 찾기', ds:'음표와 길이가 같은 쉼표를 찾아요', c:'#3BA67B',
+    lv:[{nm:'1단계', ds:'음표→쉼표'}, {nm:'2단계', ds:'쉼표→음표'}, {nm:'3단계', ds:'섞어서'}]},
+  {id:'math',    ic:'➕', nm:'더하기 빼기',  ds:'음표 길이를 더하고 빼요', c:'#8E5BD1',
+    lv:[{nm:'1단계', ds:'더하기'}, {nm:'2단계', ds:'빼기'}, {nm:'3단계', ds:'기호로 답'}]},
+  {id:'fill',    ic:'🍕', nm:'한 판 채우기', ds:'음표와 쉼표로 4박을 꼭 맞게 채워요', c:'#F2A541',
+    lv:[{nm:'1단계', ds:'쉬운 주문'}, {nm:'2단계', ds:'쉼표 주문'}, {nm:'3단계', ds:'어려운 주문'}]},
 ];
 const STAGE_BY = Object.fromEntries(STAGES.map(s => [s.id, s]));
+const starKey = (stage, lv) => stage === 'learn' ? 'learn' : stage + lv;
 
 /* ===================== 저장 ===================== */
 let progress = {range:'basic', stars:{}, learnSeen:[]};
 try{ const raw = localStorage.getItem(SAVE_KEY); if(raw) progress = Object.assign(progress, JSON.parse(raw)); }catch(e){}
+// 단계가 생기기 전의 별(order, twin …)은 1단계 별로 옮긴다
+for(const s of STAGES){
+  if(s.id !== 'learn' && progress.stars[s.id] && !progress.stars[s.id + '1']) progress.stars[s.id + '1'] = progress.stars[s.id];
+}
 function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); }catch(e){} }
-function setStars(stage, n){ if((progress.stars[stage]||0) < n){ progress.stars[stage] = n; save(); } }
+function setStars(key, n){ if((progress.stars[key]||0) < n){ progress.stars[key] = n; save(); } }
 const inRange = it => !it.ext || progress.range === 'ext';
 
 /* ===================== 기호 그리기 (SVG) ===================== */
@@ -484,29 +523,34 @@ const starStr = n => '★'.repeat(n) + '<span class="off">' + '★'.repeat(3 - n
 function renderHome(){
   document.querySelectorAll('.pill').forEach(p => p.classList.toggle('on', p.dataset.range === progress.range));
   $('stageList').innerHTML = STAGES.map(s => {
-    const n = progress.stars[s.id] || 0;
-    return `<button class="stage" data-stage="${s.id}" style="--c:${s.c}">
+    const lvs = s.lv.map((l, i) => {
+      const n = progress.stars[starKey(s.id, i + 1)] || 0;
+      return `<button class="lv ${n ? 'done' : ''}" data-stage="${s.id}" data-lv="${i + 1}" aria-label="${s.nm} ${l.nm}">
+        <span class="ln">${l.nm}</span><span class="ld">${l.ds}</span>
+        <span class="st ${n ? '' : 'none'}">${'★'.repeat(n || 3)}</span>
+      </button>`;
+    }).join('');
+    return `<div class="stage" style="--c:${s.c}">
       <div class="ic">${s.ic}</div>
-      <div class="tx"><div class="nm">${s.nm}</div><div class="ds">${s.ds}</div></div>
-      <div class="st ${n ? '' : 'none'}">${'★'.repeat(n || 3)}</div>
-    </button>`;
+      <div class="tx"><div class="nm">${s.nm}</div><div class="ds">${s.ds}</div><div class="lvRow">${lvs}</div></div>
+    </div>`;
   }).join('');
 }
 document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
   progress.range = p.dataset.range; save(); renderHome(); buzz();
 }));
 $('stageList').addEventListener('click', e => {
-  const b = e.target.closest('.stage'); if(!b) return;
-  buzz(); ensureAudio(); startStage(b.dataset.stage);
+  const b = e.target.closest('.lv'); if(!b) return;
+  buzz(); ensureAudio(); startStage(b.dataset.stage, +b.dataset.lv);
 });
 document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => { renderHome(); showView('home'); }));
 
-let lastStage = null;
-function startStage(id){
-  lastStage = id;
+let lastStage = null, lastLv = 1;
+function startStage(id, lv = 1){
+  lastStage = id; lastLv = lv;
   if(id === 'learn') startLearn();
-  else if(id === 'fill') startFill();
-  else startQuiz(id);
+  else if(id === 'fill') startFill(lv);
+  else startQuiz(id, lv);
 }
 
 /* ===================== 1. 조각 배우기 ===================== */
@@ -605,32 +649,54 @@ $('lpTwin').addEventListener('click', () => {
   showLearnItem(learn.twin ? BY[learn.sel.twin] : learn.sel);
 });
 
-/* ===================== 2·3·4. 퀴즈 ===================== */
-const QUIZ_TITLE = {order:'🧾 주문 받기', reverse:'🗣️ 거꾸로 주문', twin:'🍽️ 쌍둥이 찾기'};
+/* ===================== 2·3·4·5. 퀴즈 ===================== */
+const QUIZ_TITLE = {order:'🧾 주문 받기', reverse:'🗣️ 거꾸로 주문', twin:'🍽️ 쌍둥이 찾기', math:'➕ 더하기 빼기'};
 let quiz = null;
-function quizPool(stage){
+// 단계별 출제 범위 — 1단계 음표만, 2단계 쉼표만, 3단계 전부
+function quizPool(stage, lv){
   const items = ITEMS.filter(inRange);
-  if(stage === 'twin') return items.filter(i => i.kind === 'note' && !i.noTwin);
-  return items;
+  const notes = items.filter(i => i.kind === 'note'), rests = items.filter(i => i.kind === 'rest');
+  if(stage === 'twin'){
+    const twinNotes = notes.filter(i => !i.noTwin);
+    return lv === 1 ? twinNotes : lv === 2 ? rests : twinNotes.concat(rests);
+  }
+  return lv === 1 ? notes : lv === 2 ? rests : items;
 }
-function startQuiz(stage){
-  quiz = {stage, n: 0, total: 10, correct: 0, misses: [], last: null, lock: false};
+// 보기 3개. 3단계는 길이가 가까운(헷갈리는) 것 둘 + 아무거나 하나
+function distractors(answer, cands, lv){
+  const others = cands.filter(o => o !== answer);
+  if(lv < 3) return shuffle(others).slice(0, 3);
+  const near = others.slice().sort((a, b) => Math.abs(Math.log2(a.beats / answer.beats)) - Math.abs(Math.log2(b.beats / answer.beats)));
+  return shuffle(near.slice(0, 2)).concat(shuffle(near.slice(2)).slice(0, 1));
+}
+function startQuiz(stage, lv){
+  quiz = {stage, lv, n: 0, total: 10, correct: 0, misses: [], last: null, lock: false};
   $('quizTitle').textContent = QUIZ_TITLE[stage];
   showView('quiz'); nextQ();
 }
 function nextQ(){
   if(quiz.n >= quiz.total) return finishQuiz();
-  const pool = quizPool(quiz.stage);
-  let it; do{ it = pick(pool); } while(it === quiz.last && pool.length > 1);
-  quiz.last = it; quiz.n++; quiz.lock = false;
-  let answer, optPool;
-  if(quiz.stage === 'twin'){ answer = BY[it.twin]; optPool = ITEMS.filter(i => i.kind === 'rest' && inRange(i)); }
-  else { answer = it; optPool = pool; }
-  const opts = shuffle([answer, ...shuffle(optPool.filter(o => o !== answer)).slice(0, 3)]);
-  quiz.q = {it, answer};
-  $('quizProg').textContent = `${quiz.n} / ${quiz.total}`;
+  quiz.n++; quiz.lock = false;
+  $('quizProg').textContent = `${quiz.lv}단계 · ${quiz.n} / ${quiz.total}`;
   $('qFace').textContent = FACES[quiz.n % FACES.length];
   $('qFeedback').hidden = true;
+  if(quiz.stage === 'math') return nextMath();
+  const pool = quizPool(quiz.stage, quiz.lv);
+  let it; do{ it = pick(pool); } while(it === quiz.last && pool.length > 1);
+  quiz.last = it;
+  let answer, optPool;
+  if(quiz.stage === 'twin'){
+    answer = BY[it.twin];
+    optPool = ITEMS.filter(i => i.kind === answer.kind && inRange(i) && !i.noTwin);
+  } else { answer = it; optPool = pool; }
+  const opts = shuffle([answer, ...distractors(answer, optPool, quiz.lv)]);
+  const desc = answer.kind === 'rest' ? answer.tip : answer.hint;
+  const play = () => playItem(answer.kind === 'note' ? answer : BY[answer.twin]);   // 쉼표면 쌍둥이 음표 소리로 길이를 익힌다
+  quiz.q = {
+    key: answer.id, miss: answer, play,
+    fbOk: `${glyphBox(answer)}<div class="txt">딩동! ${answer.name} · ${beatsLabel(answer.beats)}<small>${desc}</small></div>`,
+    fbBad: `${glyphBox(answer)}<div class="txt">정답은 ${answer.name} · ${beatsLabel(answer.beats)}<small>${desc}</small></div>`,
+  };
   const B = $('qBubble');
   if(quiz.stage === 'order'){
     B.innerHTML = `${glyphBox(it)}<div><div class="say">이거 주세요!</div><div class="sub">이 기호의 이름은?</div></div>`;
@@ -638,45 +704,93 @@ function nextQ(){
     B.innerHTML = `<div style="flex:1"><div class="say">${it.name} 주세요!</div><div class="sub">맞는 기호를 골라요</div></div><button class="spk" id="qSpeak" aria-label="다시 듣기">🔈</button>`;
     $('qSpeak').addEventListener('click', () => { buzz(); speak(`${it.name} 주세요`); });
   } else {
-    B.innerHTML = `${glyphBox(it)}<div><div class="say">이 ${it.name}랑<br>쌍둥이 쉼표 주세요!</div><div class="sub">길이가 같은 쉼표를 찾아요</div></div>`;
+    const w = answer.kind === 'rest' ? '쉼표' : '음표';
+    B.innerHTML = `${glyphBox(it)}<div><div class="say">이 ${it.name}랑<br>쌍둥이 ${w} 주세요!</div><div class="sub">길이가 같은 ${w}를 찾아요</div></div>`;
   }
   $('qOpts').innerHTML = opts.map(o =>
     quiz.stage === 'order'
-      ? `<button class="opt" data-id="${o.id}">${o.name}</button>`
-      : `<button class="opt" data-id="${o.id}">${glyphBox(o)}</button>`
+      ? `<button class="opt" data-key="${o.id}"><span class="lbl">${o.name}</span></button>`
+      : `<button class="opt" data-key="${o.id}">${glyphBox(o)}</button>`
   ).join('');
 }
+
+/* ---- 더하기 빼기 ---- */
+// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서 + 답을 기호로. 3단계는 쉼표도 식에 들어간다.
+function mathCombos(lv){
+  const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
+  const src = lv === 3 ? ITEMS.filter(inRange) : notes;
+  const ops = lv === 1 ? ['+'] : lv === 2 ? ['−'] : ['+', '−'];
+  const out = [];
+  for(const a of src) for(const b of src) for(const op of ops){
+    const res = op === '+' ? a.beats + b.beats : a.beats - b.beats;
+    if(res <= 1e-9 || res > 4 + 1e-9) continue;                 // 0박이 되거나 한 판(4박)을 넘으면 안 낸다
+    if(lv === 3 && !notes.some(n => Math.abs(n.beats - res) < 1e-9)) continue;   // 기호로 답할 수 있어야 한다
+    out.push({a, b, op, res});
+  }
+  return out;
+}
+const eqHtml = (a, b, op, ans) => `<div class="eq">${glyphBox(a)}<span class="op">${op}</span>${glyphBox(b)}<span class="op">=</span><span class="qm">${ans}</span></div>`;
+const MATH_CHOICES = () => progress.range === 'ext'
+  ? [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4]
+  : [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
+function nextMath(){
+  const lv = quiz.lv, combos = mathCombos(lv);
+  let c; do{ c = pick(combos); } while(combos.length > 1 && quiz.last && c.a === quiz.last.a && c.b === quiz.last.b && c.op === quiz.last.op);
+  quiz.last = c;
+  const {a, b, op, res} = c;
+  const la = beatsLabel(a.beats), lb = beatsLabel(b.beats), lr = beatsLabel(res);
+  const line = `${a.name}(${la}) ${op} ${b.name}(${lb}) = ${lr}`;
+  let opts, key, miss;
+  if(lv < 3){
+    const pool = MATH_CHOICES().filter(v => Math.abs(v - res) > 1e-9).sort((x, y) => Math.abs(x - res) - Math.abs(y - res));
+    const wrong = shuffle(pool.slice(0, 5)).slice(0, 3);
+    opts = shuffle([res, ...wrong]).map(v => ({key: String(v), html: `<span class="lbl">${beatsLabel(v)}</span>`}));
+    key = String(res); miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, lr)};
+  } else {
+    const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
+    const answer = notes.find(n => Math.abs(n.beats - res) < 1e-9);
+    opts = shuffle([answer, ...distractors(answer, notes, 3)]).map(o => ({key: o.id, html: glyphBox(o)}));
+    key = answer.id; miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, `${answer.name}<br><small class="hand">${lr}</small>`)};
+  }
+  quiz.q = {
+    key, miss, play: () => playItem({kind: 'note', beats: res}),
+    fbOk: `<div class="txt">딩동! ${line}<small>${op === '+' ? '두 길이를 합친 만큼 소리가 나요' : '뺀 만큼 남은 길이를 들려줘요'}</small></div>`,
+    fbBad: `<div class="txt">정답은 ${lr}<small>${line}</small></div>`,
+  };
+  const sub = lv === 3
+    ? (op === '+' ? '합친 길이와 같은 음표는?' : '남은 길이와 같은 음표는?')
+    : (op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?');
+  $('qBubble').innerHTML = `<div style="flex:1">${eqHtml(a, b, op, '?')}<div class="sub">${sub}</div></div>`;
+  $('qOpts').innerHTML = opts.map(o => `<button class="opt" data-key="${o.key}">${o.html}</button>`).join('');
+}
+
 $('qOpts').addEventListener('click', e => {
   const b = e.target.closest('.opt'); if(!b || quiz.lock) return;
   quiz.lock = true; buzz();
-  const {it, answer} = quiz.q;
-  const chosen = BY[b.dataset.id];
+  const q = quiz.q;
   $('qOpts').querySelectorAll('.opt').forEach(x => x.disabled = true);
-  const F = $('qFeedback');
-  if(chosen === answer){
+  const F = $('qFeedback'); F.hidden = false;
+  if(b.dataset.key === q.key){
     quiz.correct++; b.classList.add('good'); ding();
-    F.hidden = false; F.className = 'feedback ok';
-    F.innerHTML = `${glyphBox(answer)}<div class="txt">딩동! ${answer.name} · ${beatsLabel(answer.beats)}<small>${answer.kind === 'rest' ? answer.tip : answer.hint}</small></div>`;
-    playItem(it.kind === 'note' ? it : BY[it.twin] || it);
+    F.className = 'feedback ok'; F.innerHTML = q.fbOk;
+    q.play();
     setTimeout(nextQ, 1100);
   } else {
     b.classList.add('bad'); boop(); buzz(40);
-    const good = $('qOpts').querySelector(`.opt[data-id="${answer.id}"]`); if(good) good.classList.add('flash');
-    quiz.misses.push(answer);
-    F.hidden = false; F.className = 'feedback';
-    F.innerHTML = `${glyphBox(answer)}<div class="txt">정답은 ${answer.name} · ${beatsLabel(answer.beats)}<small>${answer.kind === 'rest' ? answer.tip : answer.hint}</small></div>`;
-    // 틀렸을 때 길이를 귀로 익히도록 소리(쉼표면 쌍둥이 음표)를 들려준다
-    playItem(answer.kind === 'note' ? answer : BY[answer.twin]);
+    const good = $('qOpts').querySelector(`.opt[data-key="${q.key}"]`); if(good) good.classList.add('flash');
+    quiz.misses.push(q.miss);
+    F.className = 'feedback'; F.innerHTML = q.fbBad;
+    q.play();
     setTimeout(nextQ, 2300);
   }
 });
 function finishQuiz(){
   const c = quiz.correct, n = quiz.total;
   const stars = c === n ? 3 : c >= 8 ? 2 : 1;
-  setStars(quiz.stage, stars);
-  const uniq = [...new Set(quiz.misses)];
+  setStars(starKey(quiz.stage, quiz.lv), stars);
+  const seen = new Set(), uniq = quiz.misses.filter(m => { const k = m.k || m.id; if(seen.has(k)) return false; seen.add(k); return true; });
   showResult({
-    title: QUIZ_TITLE[quiz.stage], stars,
+    title: `${QUIZ_TITLE[quiz.stage]} ${quiz.lv}단계`, stars,
     msg: c === n ? '완벽해요! 손님들이 모두 기뻐해요 🎉' : c >= 8 ? '잘했어요! 조금만 더 하면 완벽!' : '괜찮아요. 틀린 건 다시 보고 또 해 봐요',
     sub: `${n}문제 중 ${c}개를 맞혔어요`,
     misses: uniq,
@@ -684,20 +798,39 @@ function finishQuiz(){
 }
 
 /* ===================== 5. 한 판 채우기 ===================== */
-const ORDERS = [
-  {say:'아무 조각이나 좋아요.<br>한 판 꽉 채워 주세요!', ok:() => true},
-  {say:'딱 2조각으로<br>채워 주세요', ok:s => s.length === 2, fail:'조각이 2개가 아니에요'},
-  {say:'4분음표를 2개<br>넣어 주세요', ok:s => s.filter(x => x.id === 'q').length >= 2, fail:'4분음표가 2개 안 들어 있어요'},
-  {say:'8분음표를<br>넣어 주세요', ok:s => s.some(x => x.id === 'e'), fail:'8분음표가 없어요'},
-  {say:'쉼표를 하나<br>넣어 주세요', ok:s => s.some(x => x.kind === 'rest'), fail:'쉼표가 없어요'},
-  {say:'5조각 이상으로<br>채워 주세요', ok:s => s.length >= 5, fail:'조각이 5개보다 적어요'},
-  {say:'점4분음표를<br>넣어 주세요', ok:s => s.some(x => x.id === 'dq'), fail:'점4분음표가 없어요', ext:true},
-  {say:'16분음표를 2개<br>넣어 주세요', ok:s => s.filter(x => x.id === 's').length >= 2, fail:'16분음표가 2개 안 들어 있어요', ext:true},
-];
+const cnt = (s, id) => s.filter(x => x.id === id).length;
+const ORDERS = {
+  // 1단계 — 음표만으로도 되는 쉬운 주문
+  1: [
+    {say:'아무 조각이나 좋아요.<br>한 판 꽉 채워 주세요!', ok:() => true},
+    {say:'딱 2조각으로<br>채워 주세요', ok:s => s.length === 2, fail:'조각이 2개가 아니에요'},
+    {say:'4분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 'q') >= 2, fail:'4분음표가 2개 안 들어 있어요'},
+    {say:'8분음표를<br>넣어 주세요', ok:s => cnt(s, 'e') >= 1, fail:'8분음표가 없어요'},
+    {say:'점4분음표를<br>넣어 주세요', ok:s => cnt(s, 'dq') >= 1, fail:'점4분음표가 없어요', ext:true},
+  ],
+  // 2단계 — 쉼표가 꼭 들어가는 주문
+  2: [
+    {say:'쉼표를 하나<br>넣어 주세요', ok:s => s.some(x => x.kind === 'rest'), fail:'쉼표가 없어요'},
+    {say:'4분쉼표 1개랑<br>4분음표 2개 넣어 주세요', ok:s => cnt(s, 'rq') >= 1 && cnt(s, 'q') >= 2, fail:'4분쉼표 1개와 4분음표 2개가 있어야 해요'},
+    {say:'쉼표를 2개<br>넣어 주세요', ok:s => s.filter(x => x.kind === 'rest').length >= 2, fail:'쉼표가 2개 안 들어 있어요'},
+    {say:'5조각 이상으로<br>채워 주세요', ok:s => s.length >= 5, fail:'조각이 5개보다 적어요'},
+    {say:'8분쉼표를<br>넣어 주세요', ok:s => cnt(s, 're') >= 1, fail:'8분쉼표가 없어요'},
+    {say:'16분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 's') >= 2, fail:'16분음표가 2개 안 들어 있어요', ext:true},
+  ],
+  // 3단계 — 조건이 둘 이상 붙는 까다로운 주문
+  3: [
+    {say:'딱 3조각으로<br>채워 주세요', ok:s => s.length === 3, fail:'조각이 3개가 아니에요'},
+    {say:'8분음표만으로<br>채워 주세요', ok:s => s.every(x => x.id === 'e'), fail:'8분음표가 아닌 조각이 있어요'},
+    {say:'4분음표는 빼고<br>채워 주세요', ok:s => cnt(s, 'q') === 0, fail:'4분음표가 들어 있어요'},
+    {say:'2분음표 1개,<br>나머지는 8분음표로', ok:s => cnt(s, 'h') === 1 && s.every(x => x.id === 'h' || x.id === 'e'), fail:'2분음표 하나에 8분음표만 넣어요'},
+    {say:'쉼표 2개 넣고<br>조각은 딱 4개로', ok:s => s.filter(x => x.kind === 'rest').length === 2 && s.length === 4, fail:'쉼표 2개, 조각 4개여야 해요'},
+    {say:'점4분음표를 2개<br>넣어 주세요', ok:s => cnt(s, 'dq') >= 2, fail:'점4분음표가 2개 안 들어 있어요', ext:true},
+  ],
+};
 let fill = null;
 const fillTotal = () => fill.slices.reduce((a, x) => a + x.beats, 0);
-function startFill(){
-  fill = {orders: ORDERS.filter(o => !o.ext || progress.range === 'ext'), idx: 0, slices: [], mistakes: 0, lock: false};
+function startFill(lv = 1){
+  fill = {lv, orders: ORDERS[lv].filter(o => !o.ext || progress.range === 'ext'), idx: 0, slices: [], mistakes: 0, lock: false};
   $('fillPizza').innerHTML = pizzaSVG();
   const tray = ITEMS.filter(inRange);
   $('tray').innerHTML = tray.map(i => `<button class="tcard" data-id="${i.id}">${glyphBox(i)}<div class="nm">${i.name}</div><div class="bt">${beatsLabel(i.beats)}</div></button>`).join('');
@@ -706,7 +839,7 @@ function startFill(){
 function renderOrder(){
   const o = fill.orders[fill.idx];
   fill.slices = []; fill.lock = false;
-  $('fillProg').textContent = `주문 ${fill.idx + 1} / ${fill.orders.length}`;
+  $('fillProg').textContent = `${fill.lv}단계 · 주문 ${fill.idx + 1} / ${fill.orders.length}`;
   $('fFace').textContent = FACES[(fill.idx + 3) % FACES.length];
   $('fOrder').innerHTML = o.say;
   $('fNext').hidden = true; $('fUndo').hidden = false;
@@ -774,9 +907,9 @@ $('fNext').addEventListener('click', () => { buzz(); fill.idx++; renderOrder(); 
 function finishFill(){
   const m = fill.mistakes;
   const stars = m === 0 ? 3 : m <= 3 ? 2 : 1;
-  setStars('fill', stars);
+  setStars(starKey('fill', fill.lv), stars);
   showResult({
-    title: '🍕 한 판 채우기', stars,
+    title: `🍕 한 판 채우기 ${fill.lv}단계`, stars,
     msg: m === 0 ? '한 번도 안 넘치고 다 채웠어요! 🎉' : m <= 3 ? '주문을 다 받았어요! 잘했어요' : '주문을 다 받았어요. 박 수를 잘 세면 더 쉬워요',
     sub: `${fill.orders.length}개 주문 완료 · 넘치거나 틀린 횟수 ${m}번`,
     misses: [],
@@ -790,16 +923,22 @@ function showResult({title, stars, msg, sub, misses}){
   $('resMsg').textContent = msg;
   $('resSub').textContent = sub;
   $('resMisses').innerHTML = misses.length
-    ? `<div style="width:100%;font-size:.95rem;color:var(--dim)">다시 볼 것</div>` + misses.map(m => `<div class="miss">${glyphBox(m)}<span>${m.name}<br><small class="hand" style="color:var(--dim)">${beatsLabel(m.beats)}</small></span></div>`).join('')
+    ? `<div style="width:100%;font-size:.95rem;color:var(--dim)">다시 볼 것</div>` + misses.map(m => m.html
+        ? `<div class="miss">${m.html}</div>`   // 더하기 빼기의 식
+        : `<div class="miss">${glyphBox(m)}<span>${m.name}<br><small class="hand" style="color:var(--dim)">${beatsLabel(m.beats)}</small></span></div>`).join('')
     : '';
+  // 다음 단계가 있으면 바로 이어갈 수 있게
+  const st = STAGE_BY[lastStage];
+  $('resNext').hidden = !(st && lastLv < st.lv.length);
   showView('result');
   if(stars === 3) setTimeout(() => { tone(659, .15, 'sine', .2); tone(784, .15, 'sine', .2, .15); tone(1047, .35, 'sine', .22, .3); }, 100);
 }
-$('resRetry').addEventListener('click', () => { buzz(); startStage(lastStage); });
+$('resRetry').addEventListener('click', () => { buzz(); startStage(lastStage, lastLv); });
+$('resNext').addEventListener('click', () => { buzz(); startStage(lastStage, lastLv + 1); });
 $('resHome').addEventListener('click', () => { buzz(); renderHome(); showView('home'); });
 
 renderHome();
-if(new URLSearchParams(location.search).get('debug') === '1') window.__pz = {ITEMS, BY, startStage, get quiz(){ return quiz; }, get fill(){ return fill; }, progress};
+if(new URLSearchParams(location.search).get('debug') === '1') window.__pz = {ITEMS, BY, STAGES, ORDERS, startStage, nextQ, mathCombos, get quiz(){ return quiz; }, get fill(){ return fill; }, progress};
 })();
 </script>
 </body>
