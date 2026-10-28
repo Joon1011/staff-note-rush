@@ -310,6 +310,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
         <span><b id="tPerfect">0</b>딱 맞음</span>
         <span><b id="tGood">0</b>거의 맞음</span>
         <span><b id="tMiss">0</b>놓침</span>
+        <span><b id="tWrong">0</b>빗나감</span>
       </div>
       <div class="scoreLine" id="scoreLine">점수 <b id="scoreNum">0</b><span class="newBest" id="newBest" hidden>🏆 새 기록!</span></div>
       <div class="rankForm" id="rankForm" hidden>
@@ -335,7 +336,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
       <span>🏆 최고 점수 랭킹</span>
       <span></span>
     </div>
-    <p class="lede">단계마다 따로 매겨요. 도전 모드 점수만 올라가요.<br>딱 맞음 10점, 거의 맞음 5점, 최고 연속 1번에 2점. 빠를수록 점수가 더 붙어요. 기록은 이 기기에만 저장돼요.</p>
+    <p class="lede">단계마다 따로 매겨요. 도전 모드 점수만 올라가요.<br>딱 맞음 10점, 거의 맞음 5점, 최고 연속 1번에 2점, 빗나감 1번에 −5점. 빠를수록 점수가 더 붙어요. 기록은 이 기기에만 저장돼요.</p>
     <div class="levels" id="rankTabs"></div>
     <ol class="rankList" id="rankList"></ol>
     <button class="bigBtn ghost" id="rankClear" style="margin-top:14px;">이 단계 기록 지우기</button>
@@ -385,12 +386,36 @@ function initAudio(){
     for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
   }
   if(ac.state==='suspended') ac.resume();
+  loadSamples();
+}
+
+/* ---- 악기 샘플 (sounds/fr-*.mp3 — FluidR3 GM, MIT). 못 불러오면 아래 합성음이 그대로 난다 ---- */
+const SAMPLES = {woodLo:'wood-lo', woodHi:'wood-hi', agogo:'agogo', tomLo:'tom-lo', tomHi:'tom-hi',
+                 glock:'glock', marC5:'mar-c5', marE5:'mar-e5', marG5:'mar-g5', marC6:'mar-c6'};
+const smp = {}, smpPending = {};
+function loadSamples(){
+  if(!ac || typeof fetch!=='function') return;
+  Object.entries(SAMPLES).forEach(([k,n])=>{
+    if(smp[k] || smpPending[k]) return;
+    smpPending[k]=true;
+    fetch('sounds/fr-'+n+'.mp3').then(r=>{ if(!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(a=>new Promise((res,rej)=>ac.decodeAudioData(a,res,rej)))   // 구형 사파리는 콜백형만 받는다
+      .then(b=>{ smp[k]=b; }).catch(()=>{}).finally(()=>{ smpPending[k]=false; });
+  });
+}
+function playSmp(k, t, gain=1, rate=1){
+  const b=smp[k]; if(!b || !ac) return false;
+  const s=ac.createBufferSource(); s.buffer=b; s.playbackRate.value=rate;
+  const g=ac.createGain(); g.gain.value=gain;
+  s.connect(g); g.connect(master); s.start(t);
+  return true;
 }
 ['touchstart','pointerdown','click'].forEach(e=>
   document.addEventListener(e, initAudio, {passive:true}));
 
 function click(t, accent){
   if(!ac) return;
+  if(playSmp(accent?'woodHi':'woodLo', t, accent?.9:.55)) return;   // 우드블록. 강박은 높은 블록
   const o=ac.createOscillator(), g=ac.createGain();
   o.type='square'; o.frequency.value = accent?1400:900;
   g.gain.setValueAtTime(accent?.22:.12,t);
@@ -399,6 +424,7 @@ function click(t, accent){
 }
 function woodblock(t, pitch=1){
   if(!ac) return;
+  if(playSmp('agogo', t, .7, pitch)) return;   // 아고고 벨 — 메트로놈 우드블록과 구분된다
   const o=ac.createOscillator(), g=ac.createGain();
   o.type='triangle';
   o.frequency.setValueAtTime(900*pitch,t);
@@ -409,6 +435,8 @@ function woodblock(t, pitch=1){
 }
 function tapSound(){
   if(!ac) return; const t=ac.currentTime;
+  // 톰 드럼. 매번 음높이를 조금씩 흔들어 같은 녹음이 반복되는 느낌을 지운다
+  if(playSmp(Math.random()<.25?'tomHi':'tomLo', t, .85, .95+Math.random()*.1)) return;
   const s=ac.createBufferSource(); s.buffer=nb;
   const bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2200; bp.Q.value=1.4;
   const g=ac.createGain();
@@ -418,6 +446,7 @@ function tapSound(){
 // "딱 맞았어!"에만 아주 짧고 높은 종소리를 얹어서 귀로도 정확도가 구분된다.
 function ding(){
   if(!ac) return; const t=ac.currentTime;
+  if(playSmp('glock', t, .55)) return;   // 글로켄슈필
   const o=ac.createOscillator(), g=ac.createGain();
   o.type='sine'; o.frequency.value=1568;
   g.gain.setValueAtTime(.0001,t);
@@ -427,6 +456,10 @@ function ding(){
 }
 function chime(){
   if(!ac) return; const t=ac.currentTime;
+  if(smp.marC5 && smp.marE5 && smp.marG5 && smp.marC6){   // 마림바 아르페지오
+    ['marC5','marE5','marG5','marC6'].forEach((k,i)=>playSmp(k, t+i*.09, .7));
+    return;
+  }
   [72,76,79,84].forEach((m,i)=>{
     const o=ac.createOscillator(), g=ac.createGain();
     o.type='sine'; o.frequency.value=440*Math.pow(2,(m-69)/12);
@@ -534,7 +567,7 @@ function renderHome(){
 /* ========== 게임 ========== */
 const MEASURES = 4;
 let seq=[], onsets=[], startT=0, running=false, raf=null;
-let idxPerfect=0, idxGood=0, idxMiss=0, combo=0, maxCombo=0, curMeasure=-1, curBeatCol=-1;
+let idxPerfect=0, idxGood=0, idxMiss=0, idxWrong=0, combo=0, maxCombo=0, curMeasure=-1, curBeatCol=-1;
 let beatDur=.8, measDur=3.2;
 
 function buildSequence(){
@@ -596,7 +629,7 @@ function startGame(pid){
   practiceId = pid || null;
   beatDur = 60/TEMPOS[tempo].bpm;
   measDur = beatDur*4;
-  idxPerfect=idxGood=idxMiss=0; combo=0; maxCombo=0; curMeasure=-1; curBeatCol=-1;
+  idxPerfect=idxGood=idxMiss=idxWrong=0; combo=0; maxCombo=0; curMeasure=-1; curBeatCol=-1;
   buildSequence(); buildOnsets();
   renderMeasure(0); curMeasure=0;
   $('comboLbl').textContent='연속 0';
@@ -700,7 +733,11 @@ function onTap(x, y){
     const d=Math.abs(o.t-now);
     if(d<bd){ bd=d; best=o; }
   });
-  if(!best || bd>.26){ showVerdict('빗나갔어','v-miss'); combo=0; $('comboLbl').textContent='연속 0'; return; }
+  // 음표가 없는 자리를 눌렀다 — 막 누르면 점수가 깎인다 (빗나감 1번 = 거의 맞음 하나를 지움)
+  if(!best || bd>.26){
+    idxWrong++; wrongBuzz();
+    showVerdict('빗나갔어 −','v-miss'); combo=0; $('comboLbl').textContent='연속 0'; return;
+  }
 
   best.judged=true;
   if(bd<=.09){ idxPerfect++; combo++; showVerdict('딱 맞았어!','v-perfect'); markCell(best.key,'hit'); ding(); }
@@ -708,6 +745,15 @@ function onTap(x, y){
   maxCombo=Math.max(maxCombo,combo);
   $('comboLbl').textContent='연속 '+combo;
   bumpCombo();
+}
+// 빗나간 탭에 낮게 "부웅" — 톰 소리 뒤에 얹혀 감점이 귀로도 느껴진다
+function wrongBuzz(){
+  if(!ac) return; const t=ac.currentTime;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type='sawtooth'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(90,t+.18);
+  g.gain.setValueAtTime(.001,t); g.gain.exponentialRampToValueAtTime(.12,t+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.2);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.22);
 }
 let vTimer=null;
 function showVerdict(text, cls){
@@ -730,7 +776,8 @@ function stop(){
 function finish(){
   stop();
   const total = onsets.length;
-  const pct = Math.round((idxPerfect + idxGood*0.5) / total * 100);
+  // 빗나감은 0.5씩 깎는다. 막 누르면 맞힌 것까지 상쇄되지만 0 아래로는 안 내려간다
+  const pct = Math.max(0, Math.round((idxPerfect + idxGood*0.5 - idxWrong*0.5) / total * 100));
   const stars = pct>=90?3 : pct>=70?2 : pct>=45?1 : 0;
   // 별이 하나씩 통통 튀며 켜진다
   $('stars').innerHTML = [0,1,2].map(i =>
@@ -754,7 +801,9 @@ function finish(){
   $('tPerfect').textContent = idxPerfect;
   $('tGood').textContent = idxGood;
   $('tMiss').textContent = idxMiss;
+  $('tWrong').textContent = idxWrong;
   $('resMsg').textContent =
+    idxWrong >= Math.max(4, total*0.3) ? `빗나간 탭이 ${idxWrong}번이야. 막 누르면 점수가 깎여. 과일 이름을 말하면서 그때만 두드려봐.` :
     pct>=90 ? `최고 연속 ${maxCombo}번! 이 리듬은 완전히 익혔어.` :
     pct>=70 ? `최고 연속 ${maxCombo}번. 조금만 더 정확하게!` :
     pct>=45 ? '과일 이름을 소리 내어 말하면서 두드려봐.' :
@@ -780,7 +829,7 @@ function loadAll(){ try{ const o=JSON.parse(localStorage.getItem(RANK_KEY)||'{}'
 function loadRank(lv){ const a=loadAll()[lv]; return Array.isArray(a)?a:[]; }
 function saveRank(lv, a){ const o=loadAll(); o[lv]=a; try{ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }catch(e){} }
 // 단계는 랭킹판이 따로라 가산하지 않는다. 빠르기만 — 빠르게 = ×1.5
-function calcScore(){ return Math.round((idxPerfect*10 + idxGood*5 + maxCombo*2) * (1+tempo*.25)); }
+function calcScore(){ return Math.max(0, Math.round((idxPerfect*10 + idxGood*5 + maxCombo*2 - idxWrong*5) * (1+tempo*.25))); }
 function qualifies(score){ const r=loadRank(level); return score>0 && (r.length<RANK_MAX || score>r[r.length-1].score); }
 const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function renderRank(hl){
