@@ -719,19 +719,20 @@ function nextQ(){
 }
 
 /* ---- 더하기 빼기 ---- */
-// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서. 식에는 음표만 들어간다(쉼표 길이 더하기는 초·중학생에게 어렵다).
-// 답은 문제마다 박자("2박") / 음표 이름("2분음표") / 음표 기호 중 하나로 묻는다.
+// 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서.
+// 식은 음표끼리 또는 쉼표끼리만 — 음표 문제와 쉼표 문제가 반반 나온다. 음표와 쉼표를 한 식에 섞지는 않는다.
+// 답은 문제마다 박자("2박") / 이름("2분음표"·"2분쉼표") / 기호 중 하나로 묻는다.
 // 결과는 반박 단위이거나 음표 하나의 길이(¼박·¾박)여야 한다 — "1박¼" 같은 길이는 안 낸다.
 const niceBeats = r => Math.abs(r * 2 - Math.round(r * 2)) < 1e-9 || ITEMS.some(i => i.kind === 'note' && inRange(i) && Math.abs(i.beats - r) < 1e-9);
-function mathCombos(lv){
-  const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
+function mathCombos(lv, kind = 'note'){
+  const fam = ITEMS.filter(i => i.kind === kind && inRange(i));
   const ops = lv === 1 ? ['+'] : lv === 2 ? ['−'] : ['+', '−'];
   const max = progress.range === 'ext' ? 6 : 4;                 // 확장에서는 점온음표(6박)까지
   const out = [];
-  for(const a of notes) for(const b of notes) for(const op of ops){
+  for(const a of fam) for(const b of fam) for(const op of ops){
     const res = op === '+' ? a.beats + b.beats : a.beats - b.beats;
     if(res <= 1e-9 || res > max + 1e-9 || !niceBeats(res)) continue;   // 0박이 되거나 너무 길거나 어색한 길이면 안 낸다
-    out.push({a, b, op, res});
+    out.push({a, b, op, res, kind});
   }
   return out;
 }
@@ -740,10 +741,13 @@ const MATH_CHOICES = () => progress.range === 'ext'
   ? [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6]
   : [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
 function nextMath(){
-  const lv = quiz.lv, combos = mathCombos(lv);
-  const notes = ITEMS.filter(i => i.kind === 'note' && inRange(i));
+  const lv = quiz.lv;
+  // 음표 문제와 쉼표 문제를 번갈아 낸다
+  const kind = quiz.last ? (quiz.last.kind === 'note' ? 'rest' : 'note') : pick(['note', 'rest']);
+  const combos = mathCombos(lv, kind);
+  const notes = ITEMS.filter(i => i.kind === kind && inRange(i));   // 같은 종류(음표끼리 / 쉼표끼리)
   const noteFor = r => notes.find(n => Math.abs(n.beats - r) < 1e-9);
-  // 결과가 음표 하나와 같은 길이면 이름·기호로 묻고, 아니면(2박 반 같은 것) 박자로 묻는다.
+  // 결과가 음표(쉼표) 하나와 같은 길이면 이름·기호로 묻고, 아니면(2박 반 같은 것) 박자로 묻는다.
   // 세 형식이 고루 나오도록 셋 중 둘은 음표 길이가 되는 식에서 고른다.
   const withNote = combos.filter(c => noteFor(c.res));
   const pool = withNote.length && Math.random() < .67 ? withNote : combos;
@@ -753,6 +757,7 @@ function nextMath(){
   const la = beatsLabel(a.beats), lb = beatsLabel(b.beats), lr = beatsLabel(res);
   const line = `${a.name}(${la}) ${op} ${b.name}(${lb}) = ${lr}`;
   const answer = noteFor(res);
+  const W = kind === 'rest' ? '쉼표' : '음표';
   // 문제마다 형식 하나 — 박자 문제 / 음표 이름 문제 / 음표 기호 문제. 보기 4개는 같은 형식이다.
   // 결과가 음표 하나의 길이면 이름·기호 문제로, 아니면(2박 반 같은 것) 박자 문제로 낸다. 같은 형식이 연달아 오지 않게 한다.
   let fmts = answer ? ['name', 'glyph'] : ['beats'];
@@ -763,17 +768,22 @@ function nextMath(){
     const near = MATH_CHOICES().filter(v => Math.abs(v - res) > 1e-9).sort((x, y) => Math.abs(x - res) - Math.abs(y - res));
     opts = shuffle([res, ...shuffle(near.slice(0, 5)).slice(0, 3)]).map(v => ({key: String(v), html: `<span class="lbl">${beatsLabel(v)}</span>`}));
     key = String(res);
-    sub = op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?';
+    sub = kind === 'rest'
+      ? (op === '+' ? '쉼표 둘을 합치면 몇 박 쉬어요?' : '긴 쉼표에서 짧은 쉼표를 빼면 몇 박?')
+      : (op === '+' ? '둘을 합치면 몇 박?' : '긴 것에서 짧은 것을 빼면 몇 박?');
   } else {
     opts = shuffle([answer, ...distractors(answer, notes, lv)]).map(o => ({key: o.id, html: fmt === 'name' ? `<span class="lbl">${o.name}</span>` : glyphBox(o)}));
     key = answer.id;
-    sub = (op === '+' ? '합친 길이와 같은 음표는?' : '남은 길이와 같은 음표는?') + (fmt === 'name' ? ' (이름)' : ' (기호)');
+    sub = (op === '+' ? `합친 길이와 같은 ${W}는?` : `남은 길이와 같은 ${W}는?`) + (fmt === 'name' ? ' (이름)' : ' (기호)');
   }
   const miss = {k: a.id + op + b.id, html: eqHtml(a, b, op, answer ? `${answer.name}<br><small class="hand">${lr}</small>` : lr)};
   const fbAns = answer ? `${answer.name} (${lr})` : lr;
+  const okTip = kind === 'rest'
+    ? (op === '+' ? '두 쉼표를 합친 만큼 소리 없이 박만 세요' : '뺀 만큼 남은 쉼을 박으로 세요')
+    : (op === '+' ? '두 길이를 합친 만큼 소리가 나요' : '뺀 만큼 남은 길이를 들려줘요');
   quiz.q = {
-    key, miss, play: () => playItem({kind: 'note', beats: res}),
-    fbOk: `<div class="txt">딩동! ${line}<small>${op === '+' ? '두 길이를 합친 만큼 소리가 나요' : '뺀 만큼 남은 길이를 들려줘요'}</small></div>`,
+    key, miss, play: () => playItem({kind, beats: res}),    // 쉼표 문제는 소리 없이 틱만
+    fbOk: `<div class="txt">딩동! ${line}<small>${okTip}</small></div>`,
     fbBad: `<div class="txt">정답은 ${fbAns}<small>${line}</small></div>`,
   };
   $('qBubble').innerHTML = `<div style="flex:1">${eqHtml(a, b, op, '?')}<div class="sub">${sub}</div></div>`;
