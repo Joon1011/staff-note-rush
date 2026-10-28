@@ -376,12 +376,14 @@ function glyphInner(it){
     return p.join('');
   }
   // 쉼표는 오선 위에 그려야 "매달림/올라앉음"이 보인다
-  const lines = [20,30,40,50,60].map(y => `<line x1="6" y1="${y}" x2="54" y2="${y}" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5"/>`).join('');
+  const lines = [20,30,40,50,60].map(y => `<line x1="6" y1="${y}" x2="54" y2="${y}" stroke="currentColor" stroke-opacity=".4" stroke-width="1.6"/>`).join('');
   let body = '';
   const st = 'fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"';
+  // 온쉼표·2분쉼표는 같은 칸에 들어가서 차이가 2px뿐이다. 매달린 줄 / 앉은 줄을 굵게 그려 구분이 보이게 한다.
+  const seat = y => `<line x1="8" y1="${y}" x2="52" y2="${y}" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>`;
   switch(it.id){
-    case 'rw': body = `<rect x="21" y="30" width="18" height="8" fill="currentColor"/>`; break;
-    case 'rh': body = `<rect x="21" y="32" width="18" height="8" fill="currentColor"/>`; break;
+    case 'rw': body = seat(30) + `<rect x="18" y="30" width="24" height="8.5" fill="currentColor"/>`; break;
+    case 'rh': body = seat(40) + `<rect x="18" y="31.5" width="24" height="8.5" fill="currentColor"/>`; break;
     case 'rq': body = `<path d="M25 22 L36 35 L27 45 L37 57 C 29 53, 24 59, 31 66" ${st}/>`; break;
     case 're': body = `<path d="M37 32 L27 60" ${st}/><path d="M37 32 C 35 38, 29 40, 23 36" ${st}/><circle cx="23" cy="35.5" r="3.6" fill="currentColor"/>`; break;
     case 'rs': body = `<path d="M39 30 L25 66" ${st}/><path d="M39 30 C 37 36, 31 38, 25 34" ${st}/><circle cx="25" cy="33.5" r="3.6" fill="currentColor"/>`
@@ -389,7 +391,8 @@ function glyphInner(it){
   }
   return lines + body;
 }
-const glyphSVG = it => `<svg viewBox="0 0 60 80" aria-label="${it.name}">${glyphInner(it)}</svg>`;
+// 쉼표는 오선 가운데만 쓰므로 확대해서 보여준다
+const glyphSVG = it => `<svg viewBox="${it.kind === 'rest' ? '0 14 60 52' : '0 0 60 80'}" aria-label="${it.name}">${glyphInner(it)}</svg>`;
 const glyphBox = (it, cls='glyph') => `<div class="${cls}">${glyphSVG(it)}</div>`;
 
 /* ===================== 피자 그리기 ===================== */
