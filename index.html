@@ -216,6 +216,7 @@
     position:absolute; inset:0; z-index:10;
     background:rgba(17,11,35,.96);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
+    justify-content:safe center; /* 화면이 낮아 넘칠 때 맨 위 제목이 잘리지 않게 */
     text-align:center; padding:22px; gap:12px;
     overflow-y:auto;
   }
@@ -240,8 +241,8 @@
     font-size:clamp(.6rem, 2.4vw, .7rem); letter-spacing:.04em;
     margin:2px 0 -6px;
   }
-  .speedPick, .songPick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
-  .speedBtn, .songBtn{
+  .speedPick, .songPick, .rangePick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+  .speedBtn, .songBtn, .rangeBtn{
     font-family:'Baloo 2', sans-serif; font-weight:700;
     font-size:clamp(.8rem, 3.4vw, .95rem);
     background:transparent; color:var(--text-muted);
@@ -249,7 +250,7 @@
     padding:9px 18px; min-height:44px; cursor:pointer;
     transition:background .15s, color .15s, border-color .15s;
   }
-  .speedBtn.selected, .songBtn.selected{
+  .speedBtn.selected, .songBtn.selected, .rangeBtn.selected{
     background:var(--teal); color:var(--bg-deep); border-color:var(--teal);
   }
   .linkBtn{
@@ -346,6 +347,11 @@
     자리를 보고 알맞은 <b>피아노 건반</b>을 눌러주세요. 너무 일찍 누르면 정답으로
     인정되지 않아요. 맞힐 때마다 그 음이 소리로 들려서 동요 멜로디를 그대로
     연주하게 돼요.</p>
+    <div class="sectionLabel">자리 선택</div>
+    <div class="rangePick" id="rangePick">
+      <button type="button" class="rangeBtn selected" data-range="low">기본 자리 · 도~도′</button>
+      <button type="button" class="rangeBtn" data-range="high">높은 자리 · 도′~도″</button>
+    </div>
     <div class="sectionLabel">동요 선택</div>
     <div class="songPick" id="songPick">
       <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
@@ -363,7 +369,7 @@
     <button class="primaryBtn" id="startBtn">시작하기</button>
     <a class="linkBtn" href="./world.html">🏠 다른 게임 고르기</a>
     <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
-    <div class="hint">소리가 나와요 · 무음 모드를 꺼주세요<br>검은 건반은 이 동요들엔 나오지 않아요 🎹</div>
+    <div class="hint">동요는 1절과 2절, 두 번 이어서 나와요<br>높은 자리는 같은 노래를 한 옥타브 위에서 쳐요<br>소리가 나와요 · 무음 모드를 꺼주세요</div>
   </div>
 
   <div class="overlay hidden" id="overOverlay">
@@ -413,7 +419,7 @@
   "use strict";
 
   // 도(C4) ~ 높은도(C5). step: 오선보 아래 첫째줄(E4)=0 기준 반칸 단위
-  const NOTES = [
+  const NOTES_LOW = [
     { name:'도',  sub:'C4', freq:261.63, step:-2, ledger:true  },
     { name:'레',  sub:'D4', freq:293.66, step:-1, ledger:false },
     { name:'미',  sub:'E4', freq:329.63, step: 0, ledger:false },
@@ -423,7 +429,20 @@
     { name:'시',  sub:'B4', freq:493.88, step: 4, ledger:false },
     { name:'도′', sub:'C5', freq:523.25, step: 5, ledger:false },
   ];
-  const NOTE_INDEX_BY_NAME = Object.fromEntries(NOTES.map((n, i) => [n.name, i]));
+  // 높은 자리: 도′(C5) ~ 도″(C6). 건반 8개는 그대로 두고 한 옥타브 위로 옮긴다 —
+  // 건반을 15개로 늘리면 폰에서 한 칸이 너무 좁아져 아이 손가락으로 누르기 어렵다.
+  // 같은 동요를 이 자리에서 치면 오선 위쪽 칸·줄과 위 덧줄(라″ 위 덧줄 1개, 도″ 2개)을 읽게 된다.
+  const NOTES_HIGH = NOTES_LOW.map((n, i) => ({
+    name: ['도′','레′','미′','파′','솔′','라′','시′','도″'][i],
+    sub: ['C5','D5','E5','F5','G5','A5','B5','C6'][i],
+    freq: n.freq * 2,
+    step: n.step + 7,
+  }));
+  let NOTES = NOTES_LOW;
+  let rangeHigh = false;   // 자리 선택 — 높은 자리면 true
+  // 동요 계이름은 기본 자리 이름으로 적고, 건반 위치(0~7)로 바꿔 둔다.
+  // 높은 자리에서는 같은 위치가 한 옥타브 위 음이 된다.
+  const NOTE_INDEX_BY_NAME = Object.fromEntries(NOTES_LOW.map((n, i) => [n.name, i]));
 
   // 실제 동요 멜로디의 계이름을 그대로 옮겨 정답을 맞힐 때마다 그 노래가
   // 들리게 한다(단순 무작위 음이 아니라 진짜 노래를 "연주"하는 느낌).
@@ -459,7 +478,11 @@
         '솔','미','미','파','레','레','도','미','솔','솔','미','미','미',
       ],
     },
-  ].map(song => ({ ...song, sequence: song.names.map(nm => NOTE_INDEX_BY_NAME[nm]) }));
+  ].map(song => {
+    // 스테이지가 짧다는 의견 — 1절을 마치면 같은 멜로디로 2절을 한 번 더 친다.
+    const verse = song.names.map(nm => NOTE_INDEX_BY_NAME[nm]);
+    return { ...song, verseLen: verse.length, sequence: verse.concat(verse) };
+  });
 
   const el = id => document.getElementById(id);
   const canvas = el('game'), ctx = canvas.getContext('2d');
@@ -569,7 +592,8 @@
     // 화면을 다 덮을 만큼 커진다. 가로폭 기준 상한을 같이 둬서 폰에서도 악보답게 보이게.
     const lineGap    = Math.min(H * 0.115, W * 0.075);
     // 맨 아래 줄(E4) — 오선(+아래 덧줄 여유)이 캔버스 세로 중앙에 오도록
-    const bottomLine = H * 0.5 + lineGap * 2.2;
+    // 높은 자리는 위 덧줄(도″)까지 올라가므로 오선을 한 칸 아래로 내려 위아래 여백을 맞춘다.
+    const bottomLine = H * 0.5 + lineGap * (rangeHigh ? 3.3 : 2.2);
 
     // 높은음자리표는 글리프가 넓어서, 예전처럼 판정선을 화면 폭 비율(20%)로
     // 고정하면 자리표가 판정선을 덮어 음표가 자리표 뒤에서 사라졌다. 실제
@@ -673,7 +697,7 @@
     initAudio();
     const play = () => {
       const noteDur = 0.34;
-      song.sequence.forEach((idx, i) => {
+      song.sequence.slice(0, song.verseLen || song.sequence.length).forEach((idx, i) => {
         setTimeout(() => tone(NOTES[idx].freq, noteDur * 0.85), i * noteDur * 1000);
       });
     };
@@ -691,13 +715,17 @@
   // 감각을 함께 익히라고 그려 넣는다. 세 동요 어디에도 검은 건반 음은 없어서
   // 검은 건반은 소리만 들려주고 정답 판정에는 관여하지 않는다 — 좁은 화면에서
   // 스치듯 잘못 눌린 것까지 생명 감소로 벌주지 않기 위해서다.
-  const BLACK_KEYS = [
+  const BLACK_KEYS_LOW = [
     { after:0, name:'도♯', sub:'C#4', freq:277.18 },
     { after:1, name:'레♯', sub:'D#4', freq:311.13 },
     { after:3, name:'파♯', sub:'F#4', freq:369.99 },
     { after:4, name:'솔♯', sub:'G#4', freq:415.30 },
     { after:5, name:'라♯', sub:'A#4', freq:466.16 },
   ];
+  const BLACK_KEYS_HIGH = BLACK_KEYS_LOW.map(k => ({
+    ...k, name: k.name + '′', sub: k.sub.replace('4', '5'), freq: k.freq * 2,
+  }));
+  let BLACK_KEYS = BLACK_KEYS_LOW;
   const whiteRow = document.createElement('div'); whiteRow.className = 'whiteRow';
   const blackRow = document.createElement('div'); blackRow.className = 'blackRow';
   controls.append(whiteRow, blackRow);
@@ -741,7 +769,7 @@
 
   const WHITE_W = 100 / NOTES.length;   // 흰 건반 한 칸의 폭(%)
   const BLACK_W = WHITE_W * 0.62;
-  BLACK_KEYS.forEach(k => {
+  const blackButtons = BLACK_KEYS.map((k, ki) => {
     const b = document.createElement('button');
     b.className = 'noteBtn black';
     b.type = 'button';
@@ -750,8 +778,40 @@
     b.style.left = ((k.after + 1) * WHITE_W - BLACK_W / 2) + '%';
     b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
     b.title = `${k.name} (${k.sub})`;
-    wireKey(b, () => pressBlackKey(k));
+    wireKey(b, () => pressBlackKey(BLACK_KEYS[ki]));
     blackRow.appendChild(b);
+    return b;
+  });
+
+  // ---------- 자리 선택 ----------
+  function labelKeys(){
+    buttons.forEach((b, i) => {
+      const n = NOTES[i];
+      b.innerHTML = `${n.name}<small>${n.sub}</small>`;
+      b.setAttribute('aria-label', `${n.name} ${n.sub} 건반`);
+    });
+    blackButtons.forEach((b, i) => {
+      const k = BLACK_KEYS[i];
+      b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
+      b.title = `${k.name} (${k.sub})`;
+    });
+  }
+  function setRange(high){
+    rangeHigh = high;
+    NOTES = high ? NOTES_HIGH : NOTES_LOW;
+    BLACK_KEYS = high ? BLACK_KEYS_HIGH : BLACK_KEYS_LOW;
+    labelKeys();
+    layout();
+  }
+  document.querySelectorAll('.rangeBtn').forEach(b => {
+    const pick = e => {
+      e.preventDefault();
+      document.querySelectorAll('.rangeBtn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      setRange(b.dataset.range === 'high');
+    };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
   });
 
   function pressBlackKey(k){
@@ -795,7 +855,7 @@
 
   // "랜덤"은 목록에 없는 고정곡이 아니라, 고를 때마다 8개 음 중에서 매번 새로
   // 뽑아 만든 시퀀스다 — SONGS 배열 길이(3)를 그대로 "랜덤" 인덱스로 쓴다.
-  const RANDOM_LENGTH = 40;
+  const RANDOM_LENGTH = 60;
   function buildRandomSequence(){
     return Array.from({length: RANDOM_LENGTH}, () => Math.floor(Math.random() * NOTES.length));
   }
@@ -911,6 +971,7 @@
     if(state.screen !== 'playing') return;
     const idx = state.song.sequence[state.songPos];
     state.current = { idx, x: geo.spawnX, resolved:false, flashFrames:0, flashType:null };
+    if(state.song.verseLen && state.songPos === state.song.verseLen) showToast('2절 시작! 한 번 더 🎵', 1300);
   }
 
   // 정답이든 오답이든 노래는 계속 앞으로 흘러간다 — 한 음에서 막혀버리면
@@ -1080,7 +1141,10 @@
     // 판정 구간 — 음표가 이 띠 안에 들어와야 버튼이 정답으로 인정된다.
     // 음표가 들어와 있으면(armed) 띠가 밝아지고 "지금!"이 뜬다.
     ctx.save();
-    const top = geo.bottomLine - geo.lineGap * 5.4, bottom = geo.bottomLine + geo.lineGap * 1.6;
+    // 맨 위 음(기본 자리 도′, 높은 자리 도″)보다 위에 "지금!"이 뜰 여백을 둔다
+    const topStep = NOTES[NOTES.length - 1].step;
+    const top = Math.min(geo.bottomLine - geo.lineGap * 5.4, yOf(topStep) - geo.lineGap * 2.3);
+    const bottom = geo.bottomLine + geo.lineGap * 1.6;
     const zx = hitZoneX();
     const armed = !!state.current && !state.current.resolved && state.current.x <= zx;
     const zoneGrad = ctx.createLinearGradient(geo.judgeX, 0, zx, 0);
@@ -1131,13 +1195,21 @@
     const range = Math.max(1, geo.spawnX - geo.judgeX);
     const prox = Math.max(0, Math.min(1, 1 - (n.x - geo.judgeX) / range));
 
-    if(def.ledger){
+    // 덧줄 — 오선(step 0~8) 밖의 음은 짝수 step마다 짧은 줄을 긋는다.
+    // 아래: 도(-2). 위: 라″(10)는 1개, 시″(11)는 아래 1개, 도″(12)는 2개.
+    const ledgers = [];
+    for(let s = -2; s >= def.step; s -= 2) ledgers.push(s);
+    for(let s = 10; s <= def.step; s += 2) ledgers.push(s);
+    if(ledgers.length){
       ctx.strokeStyle = '#EDE6FF';
       ctx.lineWidth = Math.max(1.2, H * 0.006);
-      ctx.beginPath();
-      ctx.moveTo(n.x - geo.noteRx * 1.7, y);
-      ctx.lineTo(n.x + geo.noteRx * 1.7, y);
-      ctx.stroke();
+      ledgers.forEach(s => {
+        const ly = yOf(s);
+        ctx.beginPath();
+        ctx.moveTo(n.x - geo.noteRx * 1.7, ly);
+        ctx.lineTo(n.x + geo.noteRx * 1.7, ly);
+        ctx.stroke();
+      });
     }
     ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(1.6, geo.lineGap * 0.11);
