@@ -208,6 +208,7 @@ h2{font-size:clamp(1rem,4vw,1.25rem);margin:0 0 4px;}
 .scoreLine{font-size:1.15rem;margin:-4px 0 10px;}
 .scoreLine b{color:#FF8A3D;font-size:1.5rem;}
 .newBest{display:inline-block;margin-left:8px;color:#12A150;font-size:.95rem;}
+.newBest[hidden]{display:none;}
 .rankForm{background:#fff;border:2px dashed var(--line);border-radius:12px;padding:10px;margin:0 0 10px;text-align:left;}
 .rankQ{font-family:'Gaegu',cursive;font-weight:700;color:var(--dim);margin-bottom:8px;}
 .rankRow{display:flex;gap:6px;}
@@ -781,7 +782,7 @@ function finish(){
   $('rankForm').hidden=true; $('rankSaved').hidden=true; $('newBest').hidden=true; pending=null;
   if(practiceId){ $('scoreLine').hidden=true; }
   else{
-    const score=calcScore(), r=loadRank();
+    const score=calcScore(), r=loadRank(level);
     $('scoreLine').hidden=false; $('scoreNum').textContent=score;
     if(score>0 && (!r.length || score>r[0].score)) $('newBest').hidden=false;
     if(qualifies(score)) offerRank(score, pct);
@@ -794,7 +795,10 @@ function finish(){
 const RANK_KEY='fruitRhythmRanking_v2', NAME_KEY='fruitRhythmName_v1', RANK_MAX=10;
 let pending=null, lastSaved=null, rankTab=0;
 function loadAll(){ try{ const o=JSON.parse(localStorage.getItem(RANK_KEY)||'{}'); return o && typeof o==='object' && !Array.isArray(o) ? o : {}; }catch(e){ return {}; } }
-function loadRank(lv){ const a=loadAll()[lv]; return Array.isArray(a)?a:[]; }
+// 같은 이름은 한 줄만: 그 이름의 가장 높은 점수만 남긴다(앞뒤 공백·대소문자는 같은 이름). 예전 중복 기록도 불러올 때 정리된다.
+const nameKey = n => String(n||'').trim().replace(/\s+/g,' ').toLowerCase();
+function bestPerName(a){ const seen=new Set(); return a.slice().sort((x,y)=>y.score-x.score || x.t-y.t).filter(e=>{ const k=nameKey(e.name); if(seen.has(k)) return false; seen.add(k); return true; }); }
+function loadRank(lv){ const a=loadAll()[lv]; return Array.isArray(a)?bestPerName(a):[]; }
 function saveRank(lv, a){ const o=loadAll(); o[lv]=a; try{ localStorage.setItem(RANK_KEY, JSON.stringify(o)); }catch(e){} }
 // 단계는 랭킹판이 따로라 가산하지 않는다. 빠르기만 — 빠르게 = ×1.5
 function calcScore(){ return Math.max(0, Math.round((idxPerfect*10 + idxGood*5 + maxCombo*2 - idxWrong*5) * (1+tempo*.25))); }
@@ -833,11 +837,20 @@ $('rankSave').onclick = ()=>{
   if(!pending) return;
   const name=($('rankName').value.trim()||'이름없음').slice(0,10);
   pending.name=name; try{ localStorage.setItem(NAME_KEY,name); }catch(e){}
-  const lv=pending.lv, r=loadRank(lv); r.push(pending);
-  r.sort((a,b)=>b.score-a.score || a.t-b.t);
-  const kept=r.slice(0,RANK_MAX); saveRank(lv, kept);
-  $('rankForm').hidden=true;
-  $('rankSaved').hidden=false; $('rankSaved').textContent=`${LEVELS[lv].n} ${kept.indexOf(pending)+1}위로 등록했어요 🏆`;
+  const lv=pending.lv, L=LEVELS[lv].n, r=loadRank(lv);
+  // 같은 이름에 더 높은(또는 같은) 점수가 있으면 새 기록은 넣지 않고 그 최고 점수를 보여준다
+  const mine=r.find(e=>nameKey(e.name)===nameKey(name));
+  $('rankForm').hidden=true; $('rankSaved').hidden=false;
+  if(mine && mine.score>=pending.score){
+    $('rankSaved').textContent=`🏆 ${mine.name}의 ${L} 최고 기록 ${mine.score}점(${r.indexOf(mine)+1}위)이 그대로 남아요`;
+    lastSaved=mine; pending=null; return;
+  }
+  // 더 낮은 기록만 있으면 그 줄을 지우고 새 점수로 바꾼다
+  const rest=r.filter(e=>e!==mine); rest.push(pending);
+  rest.sort((a,b)=>b.score-a.score || a.t-b.t);
+  const kept=rest.slice(0,RANK_MAX); saveRank(lv, kept);
+  const pos=kept.indexOf(pending)+1;
+  $('rankSaved').textContent = mine ? `${name}의 ${L} 최고 기록이 ${pending.score}점으로 바뀌었어요 · ${pos}위 🏆` : `${L} ${pos}위로 등록했어요 🏆`;
   lastSaved=pending; pending=null;
 };
 $('rankSkip').onclick = ()=>{ pending=null; $('rankForm').hidden=true; };
