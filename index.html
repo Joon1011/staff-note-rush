@@ -162,7 +162,7 @@
     color:#2a1d05;
     border:none; border-bottom:5px solid #8b7ab8;
     border-radius:0 0 7px 7px;
-    font-size:clamp(.72rem, 3vw, 1.05rem); line-height:1.05;
+    font-size:clamp(.82rem, 3.4vw, 1.1rem); line-height:1.05;
     transition:transform .07s, background .1s, box-shadow .1s;
   }
   /* 건반 사이 경계선 — border-right로 그리면 그 1px이 건반 폭을 갉아먹어서
@@ -177,8 +177,9 @@
     font-family:'Space Mono',monospace;
     font-size:.56em; opacity:.5; margin-top:1px;
   }
-  /* 건반이 15개라 폰 세로 화면에선 한 칸이 좁다 — C4 같은 작은 표기는 넓은 화면에서만 */
-  @media (max-width:560px){ .noteBtn.white small{display:none;} }
+  /* 보통(건반 15개)은 폰 세로 화면에서 한 칸이 좁다 — 글씨를 줄이고 C4 같은 작은 표기는 넓은 화면에서만 */
+  .controls.many .noteBtn.white{ font-size:clamp(.72rem, 3vw, 1.05rem); }
+  @media (max-width:560px){ .controls.many .noteBtn.white small{display:none;} }
   .noteBtn.white.pressed{
     background:linear-gradient(180deg, #EDE6FF 0%, #CFC3EE 100%);
     border-bottom-width:2px; transform:translateY(3px);
@@ -243,8 +244,8 @@
     font-size:clamp(.6rem, 2.4vw, .7rem); letter-spacing:.04em;
     margin:2px 0 -6px;
   }
-  .speedPick, .songPick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
-  .speedBtn, .songBtn{
+  .speedPick, .songPick, .diffPick{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+  .speedBtn, .songBtn, .diffBtn{
     font-family:'Baloo 2', sans-serif; font-weight:700;
     font-size:clamp(.8rem, 3.4vw, .95rem);
     background:transparent; color:var(--text-muted);
@@ -252,9 +253,13 @@
     padding:9px 18px; min-height:44px; cursor:pointer;
     transition:background .15s, color .15s, border-color .15s;
   }
-  .speedBtn.selected, .songBtn.selected{
+  .speedBtn.selected, .songBtn.selected, .diffBtn.selected{
     background:var(--teal); color:var(--bg-deep); border-color:var(--teal);
   }
+  /* 난이도 버튼은 두 줄(이름 + 음역)이라 알약 대신 둥근 네모로 */
+  .diffBtn{ border-radius:16px; line-height:1.2; padding:7px 18px; }
+  .diffBtn small{ display:block; font-size:.74em; font-weight:500; opacity:.85; }
+  #rankTabs .diffBtn{ padding:6px 22px; min-height:38px; }
   .linkBtn{
     background:none; border:none; color:var(--text-muted);
     font-family:'Baloo 2', sans-serif; font-size:clamp(.75rem, 3vw, .85rem);
@@ -349,6 +354,11 @@
     자리를 보고 알맞은 <b>피아노 건반</b>을 눌러주세요. 너무 일찍 누르면 정답으로
     인정되지 않아요. 맞힐 때마다 그 음이 소리로 들려서 동요 멜로디를 그대로
     연주하게 돼요.</p>
+    <div class="sectionLabel">난이도 선택</div>
+    <div class="diffPick" id="diffPick">
+      <button type="button" class="diffBtn" data-diff="easy">쉬움<small>도~도′ · 건반 8개</small></button>
+      <button type="button" class="diffBtn selected" data-diff="normal">보통<small>도~도″ · 건반 15개</small></button>
+    </div>
     <div class="sectionLabel">동요 선택</div>
     <div class="songPick" id="songPick">
       <button type="button" class="songBtn selected" data-song="0">곰 세 마리</button>
@@ -366,7 +376,7 @@
     <button class="primaryBtn" id="startBtn">시작하기</button>
     <a class="linkBtn" href="./world.html">🏠 다른 게임 고르기</a>
     <button type="button" class="linkBtn" id="viewRankBtn">🏆 랭킹 보기</button>
-    <div class="hint">동요는 1절과 2절, 두 번 이어서 나와요<br>2절은 한 옥타브 위, 오선 위쪽 높은 자리에서 나와요<br>소리가 나와요 · 무음 모드를 꺼주세요</div>
+    <div class="hint" id="hint"></div>
   </div>
 
   <div class="overlay hidden" id="overOverlay">
@@ -406,6 +416,10 @@
 
   <div class="overlay hidden" id="rankOverlay">
     <h2>🏆 랭킹 TOP 10</h2>
+    <div class="diffPick" id="rankTabs">
+      <button type="button" class="diffBtn" data-diff="easy">쉬움</button>
+      <button type="button" class="diffBtn" data-diff="normal">보통</button>
+    </div>
     <ol class="rankList" id="rankingList"></ol>
     <button type="button" class="linkBtn" id="closeRankBtn">닫기</button>
   </div>
@@ -426,16 +440,43 @@
     { name:'시',  sub:'B4', freq:493.88, step: 4, ledger:false },
     { name:'도′', sub:'C5', freq:523.25, step: 5, ledger:false },
   ];
-  // 악보처럼 낮은 자리와 높은 자리를 한 오선에서 다 읽게 한다 — 자리를 고르지 않는다.
+  // 보통: 악보처럼 낮은 자리와 높은 자리를 한 오선에서 다 읽게 한다.
   // 도′(C5) 위로 레′(D5)~도″(C6)를 이어 붙여 두 옥타브(흰 건반 15개). 라′는 위 덧줄 1개, 도″는 2개.
-  const NOTES = NOTES_LOW.concat(NOTES_LOW.slice(1).map((n, i) => ({
+  const NOTES_ALL = NOTES_LOW.concat(NOTES_LOW.slice(1).map((n, i) => ({
     name: ['레′','미′','파′','솔′','라′','시′','도″'][i],
     sub: ['D5','E5','F5','G5','A5','B5','C6'][i],
     freq: n.freq * 2,
     step: n.step + 7,
   })));
-  // 동요 계이름은 도~도′ 이름으로 적는다. 2절은 같은 음을 한 옥타브 위(+7칸)로 옮겨 친다.
+  // 동요 계이름은 도~도′ 이름으로 적는다. 보통의 2절은 같은 음을 한 옥타브 위(+7칸)로 옮겨 친다.
   const NOTE_INDEX_BY_NAME = Object.fromEntries(NOTES_LOW.map((n, i) => [n.name, i]));
+
+  // 검은 건반 — 정답 판정에는 쓰지 않고 위치 감각용으로만 그린다(아래 건반 설명 참고)
+  const BLACK_KEYS_LOW = [
+    { after:0, name:'도♯', sub:'C#4', freq:277.18 },
+    { after:1, name:'레♯', sub:'D#4', freq:311.13 },
+    { after:3, name:'파♯', sub:'F#4', freq:369.99 },
+    { after:4, name:'솔♯', sub:'G#4', freq:415.30 },
+    { after:5, name:'라♯', sub:'A#4', freq:466.16 },
+  ];
+  const BLACK_KEYS_ALL = BLACK_KEYS_LOW.concat(BLACK_KEYS_LOW.map(k => ({
+    after: k.after + 7, name: k.name + '′', sub: k.sub.replace('4', '5'), freq: k.freq * 2,
+  })));
+
+  // 난이도 — 쉬움은 두 옥타브로 넓히기 전의 원래 게임 그대로(한 옥타브·건반 8개·1절만·오선 배치까지).
+  // 보통은 두 옥타브·건반 15개·1절+한 옥타브 위 2절. gapH·lift는 오선 줄 간격과 오선을 내리는 정도.
+  const DIFFS = {
+    easy: {
+      label:'쉬움', notes:NOTES_LOW, black:BLACK_KEYS_LOW, twoVerses:false, randomLen:40, gapH:0.115, lift:2.2,
+      hint:'소리가 나와요 · 무음 모드를 꺼주세요<br>검은 건반은 이 동요들엔 나오지 않아요 🎹',
+    },
+    normal: {
+      label:'보통', notes:NOTES_ALL, black:BLACK_KEYS_ALL, twoVerses:true, randomLen:60, gapH:0.092, lift:3.35,
+      hint:'동요는 1절과 2절, 두 번 이어서 나와요<br>2절은 한 옥타브 위, 오선 위쪽 높은 자리에서 나와요<br>소리가 나와요 · 무음 모드를 꺼주세요',
+    },
+  };
+  let diff = 'normal';
+  let NOTES = DIFFS[diff].notes;   // 지금 난이도의 흰 건반(정답 후보) 목록 — 난이도를 바꾸면 갈아 끼운다
 
   // 실제 동요 멜로디의 계이름을 그대로 옮겨 정답을 맞힐 때마다 그 노래가
   // 들리게 한다(단순 무작위 음이 아니라 진짜 노래를 "연주"하는 느낌).
@@ -471,12 +512,7 @@
         '솔','미','미','파','레','레','도','미','솔','솔','미','미','미',
       ],
     },
-  ].map(song => {
-    // 스테이지가 짧다는 의견 — 1절을 마치면 같은 멜로디로 2절을 한 번 더 친다.
-    // 2절은 한 옥타브 위라서, 한 곡 안에서 오선 아래쪽부터 위 덧줄까지 다 읽게 된다.
-    const verse = song.names.map(nm => NOTE_INDEX_BY_NAME[nm]);
-    return { ...song, verseLen: verse.length, sequence: verse.concat(verse.map(i => i + 7)) };
-  });
+  ].map(song => ({ ...song, verse: song.names.map(nm => NOTE_INDEX_BY_NAME[nm]) }));
 
   const el = id => document.getElementById(id);
   const canvas = el('game'), ctx = canvas.getContext('2d');
@@ -488,8 +524,9 @@
   const rankOverlay = el('rankOverlay');
   const controls = el('controls');
 
-  // ---------- 랭킹(이 기기/브라우저에만 저장) ----------
-  const RANKING_KEY = 'noteRushRanking_v1';
+  // ---------- 랭킹(이 기기/브라우저에만 저장, 난이도마다 따로) ----------
+  // 보통은 원래 키를 그대로 쓰고, 쉬움은 새 키에 담는다.
+  const RANKING_KEYS = { normal:'noteRushRanking_v1', easy:'noteRushRankingEasy_v1' };
   const RANKING_MAX = 10;
   // 같은 이름은 한 줄만: 그 이름의 가장 높은 점수만 남긴다(앞뒤 공백·대소문자는 같은 이름으로 본다).
   // 예전에 쌓인 중복 기록도 불러올 때 정리된다.
@@ -502,35 +539,50 @@
       seen.add(k); return true;
     });
   }
-  function loadRanking(){
+  function readRankList(key){
     try {
-      const raw = localStorage.getItem(RANKING_KEY);
+      const raw = localStorage.getItem(key);
       const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? bestPerName(list) : [];
+      return Array.isArray(list) ? list : [];
     } catch(e){ return []; }
   }
+  function loadRanking(d){ return bestPerName(readRankList(RANKING_KEYS[d])); }
+  // 한 번만: 2026-10-29 전에 쌓인 기록은 지금의 쉬움과 같은 한 옥타브 게임에서 나온 것이라
+  // 쉬움 랭킹으로 옮긴다. 쉬움 키가 생기면(빈 목록이라도) 다시는 돌지 않는다.
+  (function splitOldRanking(){
+    try {
+      if(localStorage.getItem(RANKING_KEYS.easy) !== null) return;
+      const all = readRankList(RANKING_KEYS.normal);
+      const old = all.filter(r => String(r.date || '') < '2026-10-29');
+      localStorage.setItem(RANKING_KEYS.easy, JSON.stringify(old));
+      if(old.length) localStorage.setItem(RANKING_KEYS.normal, JSON.stringify(all.filter(r => !old.includes(r))));
+    } catch(e){}
+  })();
   // 같은 이름에 더 높은(또는 같은) 점수가 있으면 새 기록은 넣지 않고 그 최고 점수를 알려준다.
   // 더 낮은 기록만 있으면 그 줄을 지우고 새 점수로 바꾼다. 화면에 띄울 문구를 돌려준다.
-  function addRankingEntry(name, score){
+  function addRankingEntry(name, score, d){
     name = (name || '이름없음').slice(0, 12);
-    const list = loadRanking();
+    const label = DIFFS[d].label;
+    const list = loadRanking(d);
     const mine = list.find(r => nameKey(r.name) === nameKey(name));
-    if(mine && mine.score >= score) return `🏆 ${mine.name}의 최고 기록 ${mine.score}점이 그대로 남아요`;
+    if(mine && mine.score >= score) return `🏆 ${mine.name}의 ${label} 최고 기록 ${mine.score}점이 그대로 남아요`;
     const next = list.filter(r => r !== mine);
     next.push({ name, score, date: new Date().toISOString().slice(0, 10) });
     next.sort((a, b) => b.score - a.score);
     next.length = Math.min(next.length, RANKING_MAX);
-    try { localStorage.setItem(RANKING_KEY, JSON.stringify(next)); } catch(e){}
-    return mine ? `✅ ${name}의 최고 기록이 ${score}점으로 바뀌었어요!` : '✅ 랭킹에 등록됐어요!';
+    try { localStorage.setItem(RANKING_KEYS[d], JSON.stringify(next)); } catch(e){}
+    return mine ? `✅ ${name}의 ${label} 최고 기록이 ${score}점으로 바뀌었어요!` : `✅ ${label} 랭킹에 등록됐어요!`;
   }
+  let rankTab = 'normal';   // 랭킹 화면에서 보고 있는 난이도
   function renderRankingList(){
-    const list = loadRanking();
+    document.querySelectorAll('#rankTabs .diffBtn').forEach(x => x.classList.toggle('selected', x.dataset.diff === rankTab));
+    const list = loadRanking(rankTab);
     const listEl = el('rankingList');
     listEl.innerHTML = '';
     if(list.length === 0){
       const li = document.createElement('li');
       li.className = 'rankEmpty';
-      li.textContent = '아직 등록된 기록이 없어요.';
+      li.textContent = `${DIFFS[rankTab].label} 기록이 아직 없어요.`;
       listEl.appendChild(li);
       return;
     }
@@ -550,7 +602,7 @@
     const saved = el('rankSaved' + prefix);
     const input = el('rankName' + prefix);
     const submit = () => {
-      saved.textContent = addRankingEntry(input.value.trim(), getScore());
+      saved.textContent = addRankingEntry(input.value.trim(), getScore(), state.diff);
       form.classList.add('hidden');
       saved.classList.remove('hidden');
     };
@@ -576,6 +628,7 @@
   const viewRankBtn = el('viewRankBtn'), closeRankBtn = el('closeRankBtn');
   const openRanking = e => {
     if(e) e.preventDefault();
+    rankTab = diff;   // 지금 고른 난이도의 랭킹부터 보여준다
     renderRankingList();
     startOverlay.classList.add('hidden');
     rankOverlay.classList.remove('hidden');
@@ -589,6 +642,11 @@
   viewRankBtn.addEventListener('click', openRanking);
   closeRankBtn.addEventListener('touchstart', closeRanking, {passive:false});
   closeRankBtn.addEventListener('click', closeRanking);
+  document.querySelectorAll('#rankTabs .diffBtn').forEach(b => {
+    const pick = e => { e.preventDefault(); rankTab = b.dataset.diff; renderRankingList(); };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
+  });
 
   // ---------- 반응형 캔버스 ----------
   let W = 0, H = 0, geo = null;
@@ -602,11 +660,12 @@
 
     // 오선 줄 간격 — 높이 기준만 쓰면 세로로 긴 폰 화면에서 줄 간격과 높은음자리표가
     // 화면을 다 덮을 만큼 커진다. 가로폭 기준 상한을 같이 둬서 폰에서도 악보답게 보이게.
-    // 두 옥타브(아래 덧줄 도 ~ 위 덧줄 도″)에 "지금!" 여백까지 약 10칸이 세로로 들어가야 한다.
-    const lineGap    = Math.min(H * 0.092, W * 0.075);
-    // 맨 아래 줄(E4) — 오선(+아래 덧줄 여유)이 캔버스 세로 중앙에 오도록
-    // 판정 구간(도″ 위 여백 ~ 도 아래)의 가운데가 캔버스 가운데에 오도록 오선을 내린다.
-    const bottomLine = H * 0.5 + lineGap * 3.35;
+    // 보통은 두 옥타브(아래 덧줄 도 ~ 위 덧줄 도″)에 "지금!" 여백까지 약 10칸이 세로로 들어가야
+    // 해서 줄 간격을 좁힌다. 쉬움은 원래 게임과 같은 간격.
+    const P = DIFFS[diff];
+    const lineGap    = Math.min(H * P.gapH, W * 0.075);
+    // 맨 아래 줄(E4) — 판정 구간(맨 위 음 위 여백 ~ 도 아래)의 가운데가 캔버스 가운데에 오도록 오선을 내린다.
+    const bottomLine = H * 0.5 + lineGap * P.lift;
 
     // 높은음자리표는 글리프가 넓어서, 예전처럼 판정선을 화면 폭 비율(20%)로
     // 고정하면 자리표가 판정선을 덮어 음표가 자리표 뒤에서 사라졌다. 실제
@@ -723,21 +782,11 @@
   previewBtn.addEventListener('click', firePreview);
 
   // ---------- 피아노 건반(터치 우선) ----------
-  // 계이름 버튼 대신 실제 피아노 배열로 놓는다. 흰 건반 15개(도~도″)가
-  // 정답 후보이고, 검은 건반 5개는 "도는 검은 건반 두 개의 왼쪽" 같은 위치
+  // 계이름 버튼 대신 실제 피아노 배열로 놓는다. 흰 건반(쉬움 8개 도~도′, 보통 15개 도~도″)이
+  // 정답 후보이고, 검은 건반은 "도는 검은 건반 두 개의 왼쪽" 같은 위치
   // 감각을 함께 익히라고 그려 넣는다. 세 동요 어디에도 검은 건반 음은 없어서
   // 검은 건반은 소리만 들려주고 정답 판정에는 관여하지 않는다 — 좁은 화면에서
   // 스치듯 잘못 눌린 것까지 생명 감소로 벌주지 않기 위해서다.
-  const BLACK_KEYS_LOW = [
-    { after:0, name:'도♯', sub:'C#4', freq:277.18 },
-    { after:1, name:'레♯', sub:'D#4', freq:311.13 },
-    { after:3, name:'파♯', sub:'F#4', freq:369.99 },
-    { after:4, name:'솔♯', sub:'G#4', freq:415.30 },
-    { after:5, name:'라♯', sub:'A#4', freq:466.16 },
-  ];
-  const BLACK_KEYS = BLACK_KEYS_LOW.concat(BLACK_KEYS_LOW.map(k => ({
-    after: k.after + 7, name: k.name + '′', sub: k.sub.replace('4', '5'), freq: k.freq * 2,
-  })));
   const whiteRow = document.createElement('div'); whiteRow.className = 'whiteRow';
   const blackRow = document.createElement('div'); blackRow.className = 'blackRow';
   controls.append(whiteRow, blackRow);
@@ -768,31 +817,36 @@
     });
   }
 
-  const buttons = NOTES.map((n, i) => {
-    const b = document.createElement('button');
-    b.className = 'noteBtn white';
-    b.type = 'button';
-    b.innerHTML = `${n.name}<small>${n.sub}</small>`;
-    b.setAttribute('aria-label', `${n.name} ${n.sub} 건반`);
-    wireKey(b, () => answer(i, b));
-    whiteRow.appendChild(b);
-    return b;
-  });
-
-  const WHITE_W = 100 / NOTES.length;   // 흰 건반 한 칸의 폭(%)
-  const BLACK_W = WHITE_W * 0.62;
-  BLACK_KEYS.forEach(k => {
-    const b = document.createElement('button');
-    b.className = 'noteBtn black';
-    b.type = 'button';
-    b.style.width = BLACK_W + '%';
-    // 검은 건반은 이웃한 두 흰 건반의 경계 위에 걸터앉는다
-    b.style.left = ((k.after + 1) * WHITE_W - BLACK_W / 2) + '%';
-    b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
-    b.title = `${k.name} (${k.sub})`;
-    wireKey(b, () => pressBlackKey(k));
-    blackRow.appendChild(b);
-  });
+  // 난이도를 바꿀 때마다 건반을 새로 깐다
+  let buttons = [];
+  function buildKeyboard(){
+    whiteRow.innerHTML = ''; blackRow.innerHTML = '';
+    controls.classList.toggle('many', NOTES.length > 8);
+    buttons = NOTES.map((n, i) => {
+      const b = document.createElement('button');
+      b.className = 'noteBtn white';
+      b.type = 'button';
+      b.innerHTML = `${n.name}<small>${n.sub}</small>`;
+      b.setAttribute('aria-label', `${n.name} ${n.sub} 건반`);
+      wireKey(b, () => answer(i, b));
+      whiteRow.appendChild(b);
+      return b;
+    });
+    const WHITE_W = 100 / NOTES.length;   // 흰 건반 한 칸의 폭(%)
+    const BLACK_W = WHITE_W * 0.62;
+    DIFFS[diff].black.forEach(k => {
+      const b = document.createElement('button');
+      b.className = 'noteBtn black';
+      b.type = 'button';
+      b.style.width = BLACK_W + '%';
+      // 검은 건반은 이웃한 두 흰 건반의 경계 위에 걸터앉는다
+      b.style.left = ((k.after + 1) * WHITE_W - BLACK_W / 2) + '%';
+      b.setAttribute('aria-label', `${k.name} ${k.sub} 건반`);
+      b.title = `${k.name} (${k.sub})`;
+      wireKey(b, () => pressBlackKey(k));
+      blackRow.appendChild(b);
+    });
+  }
 
   function pressBlackKey(k){
     initAudio();
@@ -804,8 +858,23 @@
     if(state.screen !== 'playing') return;
     const k = parseInt(e.key, 10);
     if(k >= 1 && k <= 8){ answer(k - 1, buttons[k - 1]); return; }
-    const hi = 'qwertyu'.indexOf((e.key || '').toLowerCase());   // 레′~도″
-    if(hi >= 0) answer(8 + hi, buttons[8 + hi]);
+    const hi = 'qwertyu'.indexOf((e.key || '').toLowerCase());   // 레′~도″ (보통만)
+    if(hi >= 0 && buttons[8 + hi]) answer(8 + hi, buttons[8 + hi]);
+  });
+
+  // ---------- 난이도 선택 ----------
+  function setDiff(d){
+    diff = d;
+    NOTES = DIFFS[d].notes;
+    document.querySelectorAll('#diffPick .diffBtn').forEach(x => x.classList.toggle('selected', x.dataset.diff === d));
+    el('hint').innerHTML = DIFFS[d].hint;
+    buildKeyboard();
+    layout();
+  }
+  document.querySelectorAll('#diffPick .diffBtn').forEach(b => {
+    const pick = e => { e.preventDefault(); setDiff(b.dataset.diff); };
+    b.addEventListener('touchstart', pick, {passive:false});
+    b.addEventListener('click', pick);
   });
 
   // ---------- 속도 선택 ----------
@@ -836,17 +905,20 @@
     b.addEventListener('click', pick);
   });
 
-  // "랜덤"은 목록에 없는 고정곡이 아니라, 고를 때마다 8개 음 중에서 매번 새로
+  // "랜덤"은 목록에 없는 고정곡이 아니라, 고를 때마다 지금 난이도의 흰 건반 음 중에서 매번 새로
   // 뽑아 만든 시퀀스다 — SONGS 배열 길이(3)를 그대로 "랜덤" 인덱스로 쓴다.
-  const RANDOM_LENGTH = 60;
   function buildRandomSequence(){
-    return Array.from({length: RANDOM_LENGTH}, () => Math.floor(Math.random() * NOTES.length));
+    return Array.from({length: DIFFS[diff].randomLen}, () => Math.floor(Math.random() * NOTES.length));
   }
   function getSelectedSong(){
     if(selectedSongIndex === SONGS.length){
       return { title:'랜덤', sequence: buildRandomSequence() };
     }
-    return SONGS[selectedSongIndex];
+    const song = SONGS[selectedSongIndex];
+    // 쉬움은 원래대로 1절만. 보통은 스테이지가 짧다는 의견에 따라 1절을 마치면 같은 멜로디를
+    // 한 옥타브 위에서 2절로 한 번 더 친다 — 한 곡 안에서 오선 아래쪽부터 위 덧줄까지 다 읽게 된다.
+    if(!DIFFS[diff].twoVerses) return { title: song.title, sequence: song.verse };
+    return { title: song.title, verseLen: song.verse.length, sequence: song.verse.concat(song.verse.map(i => i + 7)) };
   }
 
   // ---------- 게임 상태 ----------
@@ -857,6 +929,7 @@
       score:0, combo:0, maxCombo:0,
       lives:3, correct:0, misses:0,
       level:1, travelTime:baseTravel,  // 판정선까지 도달 시간(초) — 화면 크기와 무관
+      diff,                            // 이 판의 난이도 — 랭킹을 어느 판에 올릴지 정한다
       song: getSelectedSong(),
       songPos:0,
       current:null,
@@ -1124,7 +1197,7 @@
     // 판정 구간 — 음표가 이 띠 안에 들어와야 버튼이 정답으로 인정된다.
     // 음표가 들어와 있으면(armed) 띠가 밝아지고 "지금!"이 뜬다.
     ctx.save();
-    // 맨 위 음(기본 자리 도′, 높은 자리 도″)보다 위에 "지금!"이 뜰 여백을 둔다
+    // 맨 위 음(쉬움 도′, 보통 도″)보다 위에 "지금!"이 뜰 여백을 둔다
     const topStep = NOTES[NOTES.length - 1].step;
     const top = Math.min(geo.bottomLine - geo.lineGap * 5.4, yOf(topStep) - geo.lineGap * 2.3);
     const bottom = geo.bottomLine + geo.lineGap * 1.6;
@@ -1179,7 +1252,7 @@
     const prox = Math.max(0, Math.min(1, 1 - (n.x - geo.judgeX) / range));
 
     // 덧줄 — 오선(step 0~8) 밖의 음은 짝수 step마다 짧은 줄을 긋는다.
-    // 아래: 도(-2). 위: 라″(10)는 1개, 시″(11)는 아래 1개, 도″(12)는 2개.
+    // 아래: 도(-2). 위: 라′(10)는 1개, 시′(11)는 아래 1개, 도″(12)는 2개.
     const ledgers = [];
     for(let s = -2; s >= def.step; s -= 2) ledgers.push(s);
     for(let s = 10; s <= def.step; s += 2) ledgers.push(s);
@@ -1257,7 +1330,7 @@
     requestAnimationFrame(loop);
   }
 
-  layout();
+  setDiff(diff);   // 건반·안내 문구·오선 배치를 기본 난이도로 깐다
   renderHUD();
 })();
 </script>
