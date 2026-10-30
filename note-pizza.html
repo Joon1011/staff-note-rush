@@ -312,7 +312,7 @@ button:active{transform:scale(.97);}
       <div class="bubble"><div><div class="say" id="fOrder"></div><div class="sub">피자 한 판은 4박이에요</div></div></div>
     </div>
     <div class="pizzaWrap" id="fillPizza"></div>
-    <div class="meter">채운 박 <b id="fMeter">0</b> / 4</div>
+    <div class="meter">채운 길이 <b id="fMeter">0박</b> / 4박</div>
     <div class="tray" id="tray"></div>
     <div class="fillBtns">
       <button class="btn soft" id="fUndo">↩ 하나 빼기</button>
@@ -356,7 +356,7 @@ const ITEMS = [
   {id:'dw', kind:'note', name:'점온음표', beats:6,   shape:'w', dotted:true, slices:2, span:2, color:'#E08A3C', hint:'온음표 옆의 점은 "반(2박)만큼 더". 4박 + 2박 = 6박, 피자 한 판 반이에요!', ext:true, noTwin:true},
   {id:'dh', kind:'note', name:'점2분음표',beats:3,   shape:'h', dotted:true, slices:4, span:3, color:'#C94A5A', hint:'2분음표 옆의 점은 "반(1박)만큼 더". 2박 + 1박 = 3박.', ext:true, noTwin:true},
   {id:'dq', kind:'note', name:'점4분음표',beats:1.5, shape:'q', dotted:true, slices:8, span:3, color:'#D1589A', hint:'4분음표 옆의 점은 "반(반박)만큼 더". 1박 + 반박 = 한 박 반.', ext:true, noTwin:true},
-  {id:'de', kind:'note', name:'점8분음표',beats:0.75,shape:'e', dotted:true, slices:16,span:3, color:'#7A6BD6', hint:'8분음표 옆의 점은 "반(반의 반박)만큼 더". 반박 + 반의 반박 = ¾박.', ext:true, noTwin:true},
+  {id:'de', kind:'note', name:'점8분음표',beats:0.75,shape:'e', dotted:true, slices:16,span:3, color:'#7A6BD6', hint:'8분음표 옆의 점은 "반(반의 반박)만큼 더". 반박 + 반의 반박 = 반의 반박 3개예요.', ext:true, noTwin:true},
   {id:'rw', kind:'rest', name:'온쉼표',   beats:4,   twin:'w',  tip:'무거워서 줄 아래에 매달렸어요'},
   {id:'rh', kind:'rest', name:'2분쉼표',  beats:2,   twin:'h',  tip:'모자처럼 줄 위에 올라앉았어요'},
   {id:'rq', kind:'rest', name:'4분쉼표',  beats:1,   twin:'q',  tip:'번개처럼 구불구불해요'},
@@ -364,13 +364,15 @@ const ITEMS = [
   {id:'rs', kind:'rest', name:'16분쉼표', beats:0.25,twin:'s',  tip:'점이 둘 달린 지팡이', ext:true},
 ];
 const BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-const BEAT_LABEL = {4:'4박', 2:'2박', 1:'1박', 0.5:'반박', 0.25:'반의 반박', 1.5:'한 박 반'};
-// 더하기 빼기에서는 2박 반, ¾박 같은 길이도 나온다
+const BEAT_LABEL = {4:'4박', 2:'2박', 1:'1박', 0.5:'반박', 0.25:'반의 반박', 0.75:'반의 반박 3개', 1.5:'한 박 반'};
+// 아이들이 아직 분수를 안 배워서 ¾박, 1¼박처럼 쓰지 않는다 — 반박·반의 반박으로만 읽는다.
+// 한 판 채우기의 남은 자리에는 2박 반, 2박하고 반의 반박 같은 길이도 나온다
 function beatsLabel(b){
   if(BEAT_LABEL[b]) return BEAT_LABEL[b];
   const whole = Math.floor(b + 1e-9), frac = Math.round((b - whole) * 4);
   if(frac === 2) return whole + '박 반';                      // 2박 반
-  if(frac) return (whole || '') + ['', '¼', '', '¾'][frac] + '박';   // ¾박, 1¼박
+  if(frac === 1) return whole + '박하고 반의 반박';            // 1박하고 반의 반박 (1.25)
+  if(frac === 3) return whole + '박하고 반의 반박 3개';        // 2박하고 반의 반박 3개 (2.75)
   return whole + '박';
 }
 
@@ -770,6 +772,7 @@ function nextQ(){
 // 모든 문제를 박자·이름·기호 어느 형식으로도 낼 수 있다.
 // 범위를 따른다: 기본은 온~8분음표 4개·온~8분쉼표 4개만, 확장은 음표 9개(16분·점음표까지)·쉼표 5개.
 // 예전엔 범위와 상관없이 9개를 다 써서, 기본 범위 아이에게 안 배운 점음표가 음표 문제의 86%에 나왔다.
+// 점음표는 한 식에 하나까지만 (4분 + 8분 = 점4분, 점4분 − 4분 = 8분처럼). 점음표끼리 더하고 빼는 식은 없다.
 const mathFam = kind => ITEMS.filter(i => i.kind === kind && inRange(i));
 function mathCombos(lv, kind = 'note'){
   const fam = mathFam(kind);
@@ -778,6 +781,7 @@ function mathCombos(lv, kind = 'note'){
   for(const a of fam) for(const b of fam) for(const op of ops){
     const res = op === '+' ? a.beats + b.beats : a.beats - b.beats;
     if(res <= 1e-9 || !fam.some(n => Math.abs(n.beats - res) < 1e-9)) continue;   // 결과가 음표(쉼표) 길이가 아니면 안 낸다
+    if(a.dotted && b.dotted) continue;   // 점음표끼리(점4분 − 점8분 = 점8분 같은 식)는 아이들이 계산하기 어려워서 안 낸다
     out.push({a, b, op, res, kind});
   }
   return out;
@@ -920,9 +924,8 @@ function renderFillPizza(){
   });
   svg.querySelector('.sliceLayer').innerHTML = s;
   svg.querySelector('.glyphLayer').innerHTML = g;
-  // 3.5 같은 소수 대신 3½ 로 — 아이들이 "반 조각"으로 읽게
-  const t = fillTotal(), whole = Math.floor(t + 1e-9), frac = Math.round((t - whole) * 4);
-  $('fMeter').textContent = (whole || !frac ? whole : '') + ['', '¼', '½', '¾'][frac];
+  // 3.5 같은 소수나 3½ 같은 분수 대신 "3박 반"으로 — 아이들이 아직 분수를 안 배웠다
+  $('fMeter').textContent = beatsLabel(fillTotal());
 }
 $('tray').addEventListener('click', e => {
   const b = e.target.closest('.tcard'); if(!b || fill.lock) return;
