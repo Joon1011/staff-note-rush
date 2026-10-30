@@ -369,9 +369,9 @@ const BEAT_LABEL = {4:'4박', 2:'2박', 1:'1박', 0.5:'반박', 0.25:'반의 반
 function beatsLabel(b){
   if(BEAT_LABEL[b]) return BEAT_LABEL[b];
   const whole = Math.floor(b + 1e-9), frac = Math.round((b - whole) * 4);
-  const f = ['', '¼', ' 반', '¾'][frac];
-  if(!whole) return f.trim() + '박';
-  return whole + '박' + f;
+  if(frac === 2) return whole + '박 반';                      // 2박 반
+  if(frac) return (whole || '') + ['', '¼', '', '¾'][frac] + '박';   // ¾박, 1¼박
+  return whole + '박';
 }
 
 const STAGES = [
@@ -525,8 +525,14 @@ function toast(msg, ms = 1500){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
+// 다음 문제로 넘기기·결과 띄우기처럼 화면 흐름을 미루는 타이머.
+// 화면을 바꾸면 모두 지운다 — 예전엔 답을 고르고 곧바로 가게로 나가 다른 놀이를 시작하면
+// 남은 타이머가 새 놀이의 문제를 넘겨 버리거나(보기 순서가 손가락 밑에서 바뀜) 결과 화면을 띄웠다.
+let flowTimers = [];
+function later(fn, ms){ const t = setTimeout(() => { flowTimers = flowTimers.filter(x => x !== t); fn(); }, ms); flowTimers.push(t); }
 function showView(id){
   stopDemo();
+  flowTimers.forEach(clearTimeout); flowTimers = [];
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
   document.querySelector('.view.active').scrollTop = 0;
 }
@@ -760,10 +766,11 @@ function nextQ(){
 /* ---- 더하기 빼기 ---- */
 // 1단계 더하기, 2단계 빼기(긴 것 − 짧은 것), 3단계 섞어서.
 // 식은 음표끼리 또는 쉼표끼리만 — 음표 문제와 쉼표 문제가 번갈아 나온다. 음표와 쉼표를 한 식에 섞지는 않는다.
-// 정답은 언제나 음표(쉼표) 하나의 길이다 — 음표 9개(16분·8분·점8분·4분·점4분·2분·점2분·온·점온), 쉼표 5개.
-// 그래서 "2박 반" 같은 답은 안 나오고, 모든 문제를 박자·이름·기호 어느 형식으로도 낼 수 있다.
-// 더하기 빼기는 범위(기본/확장)와 상관없이 음표 9개를 다 쓴다.
-const mathFam = kind => ITEMS.filter(i => i.kind === kind);
+// 정답은 언제나 음표(쉼표) 하나의 길이다 — 그래서 "2박 반" 같은 답은 안 나오고,
+// 모든 문제를 박자·이름·기호 어느 형식으로도 낼 수 있다.
+// 범위를 따른다: 기본은 온~8분음표 4개·온~8분쉼표 4개만, 확장은 음표 9개(16분·점음표까지)·쉼표 5개.
+// 예전엔 범위와 상관없이 9개를 다 써서, 기본 범위 아이에게 안 배운 점음표가 음표 문제의 86%에 나왔다.
+const mathFam = kind => ITEMS.filter(i => i.kind === kind && inRange(i));
 function mathCombos(lv, kind = 'note'){
   const fam = mathFam(kind);
   const ops = lv === 1 ? ['+'] : lv === 2 ? ['−'] : ['+', '−'];
@@ -783,8 +790,11 @@ function nextMath(){
   const kind = quiz.last ? (quiz.last.kind === 'note' ? 'rest' : 'note') : pick(['note', 'rest']);
   const combos = mathCombos(lv, kind);
   const fam = mathFam(kind);                                     // 같은 종류(음표끼리 / 쉼표끼리)
-  let c; do{ c = pick(combos); } while(combos.length > 1 && quiz.last && c.a === quiz.last.a && c.b === quiz.last.b && c.op === quiz.last.op);
-  quiz.last = c;
+  // 같은 종류의 바로 앞 식은 다시 내지 않는다 (기본 범위는 식 가짓수가 적어서 연달아 겹치기 쉽다)
+  quiz.prevMath = quiz.prevMath || {};
+  const prev = quiz.prevMath[kind];
+  let c; do{ c = pick(combos); } while(combos.length > 1 && prev && c.a === prev.a && c.b === prev.b && c.op === prev.op);
+  quiz.last = c; quiz.prevMath[kind] = c;
   const {a, b, op, res} = c;
   const la = beatsLabel(a.beats), lb = beatsLabel(b.beats), lr = beatsLabel(res);
   const line = `${a.name}(${la}) ${op} ${b.name}(${lb}) = ${lr}`;
@@ -825,14 +835,14 @@ $('qOpts').addEventListener('click', e => {
     quiz.correct++; b.classList.add('good'); ding();
     F.className = 'feedback ok'; F.innerHTML = q.fbOk;
     q.play();
-    setTimeout(nextQ, 1100);
+    later(nextQ, 1100);
   } else {
     b.classList.add('bad'); boop(); buzz(40);
     const good = $('qOpts').querySelector(`.opt[data-key="${q.key}"]`); if(good) good.classList.add('flash');
     quiz.misses.push(q.miss);
     F.className = 'feedback'; F.innerHTML = q.fbBad;
     q.play();
-    setTimeout(nextQ, 2300);
+    later(nextQ, 2300);
   }
 });
 function finishQuiz(){
@@ -918,10 +928,17 @@ $('tray').addEventListener('click', e => {
   const b = e.target.closest('.tcard'); if(!b || fill.lock) return;
   buzz();
   const it = BY[b.dataset.id];
-  if(fillTotal() + it.beats > 4 + 1e-9){
+  const left = 4 - fillTotal();
+  if(left < 1e-9){
+    // 꽉 찼는데 주문과 달라 멈춘 판 — 이미 한 번 틀린 걸로 셌으니 더 누른 건 실수로 세지 않는다
+    boop();
+    toast('판이 꽉 찼어요. ↩ 하나 빼기로 조각을 먼저 빼 주세요', 2000);
+    return;
+  }
+  if(it.beats > left + 1e-9){
     fill.mistakes++; boop(); buzz(40);
     const w = $('fillPizza'); w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');
-    toast(`넘쳐요! ${it.name}는 ${beatsLabel(it.beats)}인데 남은 자리가 ${beatsLabel(4 - fillTotal()) || '없어요'}`);
+    toast(`넘쳐요! ${it.name}는 ${beatsLabel(it.beats)}인데 남은 자리는 ${beatsLabel(left)}이에요`);
     return;
   }
   fill.slices.push(it); renderFillPizza();
@@ -952,7 +969,7 @@ function completeFill(){
     svg.querySelectorAll('.fs').forEach(x => x.classList.remove('hot'));
     toast('완성! 손님이 맛있게 먹어요 🍕');
     if(fill.idx + 1 < fill.orders.length) $('fNext').hidden = false;
-    else setTimeout(finishFill, 800);
+    else later(finishFill, 800);
   }, t + 200));
 }
 $('fNext').addEventListener('click', () => { buzz(); fill.idx++; renderOrder(); });
