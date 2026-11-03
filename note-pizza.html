@@ -742,7 +742,7 @@ function nextQ(){
   } else { answer = it; optPool = pool; }
   const opts = shuffle([answer, ...distractors(answer, optPool, quiz.lv)]);
   const desc = answer.kind === 'rest' ? answer.tip : answer.hint;
-  const play = () => playItem(answer.kind === 'note' ? answer : BY[answer.twin]);   // 쉼표면 쌍둥이 음표 소리로 길이를 익힌다
+  const play = () => playItem(answer);   // 쉼표가 정답이면 음 없이 박만 틱틱 센다 (더하기 빼기의 쉼표 문제와 같은 소리)
   quiz.q = {
     key: answer.id, miss: answer, play,
     fbOk: `${glyphBox(answer)}<div class="txt">딩동! ${answer.name} · ${beatsLabel(answer.beats)}<small>${desc}</small></div>`,
